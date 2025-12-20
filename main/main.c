@@ -151,6 +151,7 @@ static void lv_tick_task(void *arg) {
 //If you wish to call *any* lvgl function from other threads/tasks
 //you should lock on the very same semaphore!
 SemaphoreHandle_t xGuiSemaphore;		// 创建一个GUI信号量
+static bool perf_monitor_hidden = false;	// Flag to track if we've hidden the perf monitor
 
 void guiTask(void *pvParameter) {
     
@@ -266,10 +267,6 @@ void guiTask(void *pvParameter) {
 	hhmm[4] = '\0';
 	
 	snprintf(version_str, sizeof(version_str), 
-	         "System Information\n\n"
-	         "ESP32 @ 240MHz\n"
-	         "ILI9341 Display\n"
-	         "320x240 Resolution\n\n"
 	         "Version: DEV%s%02d%s-%s\n\n"
 	         "(c) Syquens B.V. 2025\n"
 	         "V.N. Verbon",
@@ -278,11 +275,11 @@ void guiTask(void *pvParameter) {
 	lv_label_set_text(label_info, version_str);
 	lv_obj_align(label_info, NULL, LV_ALIGN_IN_TOP_MID, 0, 20);
 	
-	// Add performance monitor toggle
+	// Add performance monitor toggle (scrollable with page)
 	lv_obj_t *perf_cont = lv_cont_create(tab_info, NULL);
 	lv_cont_set_layout(perf_cont, LV_LAYOUT_ROW_MID);
 	lv_obj_set_width(perf_cont, lv_obj_get_width(tab_info) - 20);
-	lv_obj_align(perf_cont, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, -20);
+	lv_obj_align(perf_cont, label_info, LV_ALIGN_OUT_BOTTOM_MID, 0, 40);
 	
 	lv_obj_t *perf_label = lv_label_create(perf_cont, NULL);
 	lv_label_set_text(perf_label, "Show FPS/CPU");
@@ -291,21 +288,24 @@ void guiTask(void *pvParameter) {
 	lv_switch_off(perf_switch, LV_ANIM_OFF);  // OFF by default
 	lv_obj_set_event_cb(perf_switch, perf_monitor_toggle_cb);
 	
-	// Hide performance monitor initially
-	lv_obj_t *sys_layer = lv_layer_sys();
-	if (sys_layer) {
-		lv_obj_t *child = lv_obj_get_child(sys_layer, NULL);
-		while (child != NULL) {
-			lv_obj_set_hidden(child, true);
-			child = lv_obj_get_child(sys_layer, child);
-		}
-	}
-	
     while (1) {
 		vTaskDelay(1);
 		// 尝试锁定信号量，如果成功，请调用lvgl的东西
 		if (xSemaphoreTake(xGuiSemaphore, (TickType_t)10) == pdTRUE) {
             lv_task_handler();
+            
+            // Hide performance monitor on first render (it's created by LVGL after first refresh)
+            if (!perf_monitor_hidden) {
+                lv_obj_t *sys_layer = lv_layer_sys();
+                if (sys_layer) {
+                    lv_obj_t *child = lv_obj_get_child(sys_layer, NULL);
+                    if (child != NULL) {
+                        lv_obj_set_hidden(child, true);
+                        perf_monitor_hidden = true;
+                    }
+                }
+            }
+            
             xSemaphoreGive(xGuiSemaphore);  // 释放信号量
         }
     }
