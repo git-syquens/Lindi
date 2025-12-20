@@ -99,6 +99,11 @@ Flash按钮	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
+#include "nvs_flash.h"
+#include "esp_sntp.h"
+#include <time.h>
+#include <sys/time.h>
 
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
@@ -113,8 +118,30 @@ Flash按钮	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 
 #include "lv_examples/src/lv_demo_widgets/lv_demo_widgets.h"
 
+// WiFi Configuration
+#define WIFI_SSID      "YOUR_WIFI_SSID"
+#define WIFI_PASS      "YOUR_WIFI_PASSWORD"
+#define WIFI_MAXIMUM_RETRY  5
 
+// WiFi event group bits
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
 
+static const char *TAG = "lindi";
+
+// WiFi globals
+static EventGroupHandle_t s_wifi_event_group;
+static int s_retry_num = 0;
+static bool wifi_connected = false;
+static char wifi_ip_addr[16] = "Not connected";
+
+// Time and timezone globals
+static int timezone_offset = 1; // Default: Amsterdam (GMT+1)
+static bool time_synced = false;
+static lv_obj_t *timezone_selector = NULL;
+static bool winter_time_enabled = false; // Default: off (use summer time)
+
+#define NVS_NAMESPACE "lindi_cfg"
 
 //LV_IMG_DECLARE(mouse_cursor_icon);			/*Declare the image file.*/
 
@@ -131,11 +158,189 @@ Flash按钮	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 static void lv_tick_task(void *arg);
 void guiTask(void *pvParameter);				// GUI任务
 static void perf_monitor_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static void clock_update_task(lv_task_t *task);
+static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
+static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
+
+// WiFi event handler
+static void wifi_event_handler(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data)
+{
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+        ESP_LOGI(TAG, "WiFi started, connecting...");
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (s_retry_num < WIFI_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            s_retry_num++;
+            ESP_LOGI(TAG, "Retry connecting to WiFi (%d/%d)", s_retry_num, WIFI_MAXIMUM_RETRY);
+        } else {
+            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+            ESP_LOGI(TAG, "Failed to connect to WiFi");
+        }
+        wifi_connected = false;
+        strcpy(wifi_ip_addr, "Not connected");
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        snprintf(wifi_ip_addr, sizeof(wifi_ip_addr), IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "Got IP: %s", wifi_ip_addr);
+        s_retry_num = 0;
+        wifi_connected = true;
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+}
+
+// SNTP time sync notification callback
+void time_sync_notification_cb(struct timeval *tv)
+{
+    ESP_LOGI(TAG, "Time synchronized via NTP");
+    time_synced = true;
+}
+
+// Initialize SNTP for time synchronization
+void initialize_sntp(void)
+{
+    ESP_LOGI(TAG, "Initializing SNTP");
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_setservername(1, "time.google.com");
+    esp_sntp_set_time_sync_notification_cb(time_sync_notification_cb);
+    esp_sntp_init();
+}
+
+// Load winter time setting from NVS
+void load_winter_time_setting(void)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        uint8_t value = 0;
+        err = nvs_get_u8(nvs_handle, "winter_time", &value);
+        if (err == ESP_OK) {
+            winter_time_enabled = (value != 0);
+            ESP_LOGI(TAG, "Loaded winter time setting: %s", winter_time_enabled ? "enabled" : "disabled");
+        } else {
+            ESP_LOGI(TAG, "Winter time setting not found, using default (disabled)");
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Save winter time setting to NVS
+void save_winter_time_setting(bool enabled)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(nvs_handle, "winter_time", enabled ? 1 : 0);
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Saved winter time setting: %s", enabled ? "enabled" : "disabled");
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Initialize WiFi in station mode
+void wifi_init_sta(void)
+{
+    s_wifi_event_group = xEventGroupCreate();
+
+    ESP_ERROR_CHECK(esp_netif_init());
+    esp_netif_create_default_wifi_sta();
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    esp_event_handler_instance_t instance_any_id;
+    esp_event_handler_instance_t instance_got_ip;
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+                                                        ESP_EVENT_ANY_ID,
+                                                        &wifi_event_handler,
+                                                        NULL,
+                                                        &instance_any_id));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+                                                        IP_EVENT_STA_GOT_IP,
+                                                        &wifi_event_handler,
+                                                        NULL,
+                                                        &instance_got_ip));
+
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = WIFI_SSID,
+            .password = WIFI_PASS,
+            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+        },
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
+    ESP_ERROR_CHECK(esp_wifi_start() );
+
+    ESP_LOGI(TAG, "WiFi init finished, waiting for connection...");
+
+    /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
+     * number of re-tries (WIFI_FAIL_BIT). The bits are set by wifi_event_handler() */
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+            pdFALSE,
+            pdFALSE,
+            portMAX_DELAY);
+
+    /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
+     * happened. */
+    if (bits & WIFI_CONNECTED_BIT) {
+        ESP_LOGI(TAG, "Connected to WiFi SSID:%s", WIFI_SSID);
+        // Initialize SNTP after WiFi connects
+        initialize_sntp();
+        
+        // Wait for time to be set
+        time_t now = 0;
+        struct tm timeinfo = { 0 };
+        int retry = 0;
+        const int retry_count = 10;
+        while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < retry_count) {
+            ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+            vTaskDelay(2000 / portTICK_PERIOD_MS);
+        }
+        time(&now);
+        localtime_r(&now, &timeinfo);
+        
+        // Set timezone to Amsterdam (CET/CEST)
+        setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+        tzset();
+        
+    } else if (bits & WIFI_FAIL_BIT) {
+        ESP_LOGI(TAG, "Failed to connect to SSID:%s", WIFI_SSID);
+    } else {
+        ESP_LOGE(TAG, "Unexpected WiFi event");
+    }
+}
 
 
 // 主函数
 void app_main() {
 	printf("\r\nAPP %s is start!~\r\n", TAG);
+	
+	// Initialize NVS
+	esp_err_t ret = nvs_flash_init();
+	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(ret);
+	
+	// Load winter time setting from NVS
+	load_winter_time_setting();
+	
+	// Initialize event loop
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	
+	// Initialize WiFi
+	ESP_LOGI(TAG, "Starting WiFi...");
+	wifi_init_sta();
+	
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
 	// 如果要使用任务创建图形，则需要创建固定核心任务,否则可能会出现诸如内存损坏等问题
 	// 创建一个固定到其中一个核心的FreeRTOS任务，选择核心1
@@ -152,6 +357,9 @@ static void lv_tick_task(void *arg) {
 //you should lock on the very same semaphore!
 SemaphoreHandle_t xGuiSemaphore;		// 创建一个GUI信号量
 static bool perf_monitor_hidden = false;	// Flag to track if we've hidden the perf monitor
+
+// Clock variables
+static lv_obj_t *clock_label = NULL;
 
 void guiTask(void *pvParameter) {
     
@@ -228,10 +436,15 @@ void guiTask(void *pvParameter) {
 	lv_obj_t *tab_level = lv_tabview_add_tab(tv, "Level");
 	lv_obj_t *tab_info = lv_tabview_add_tab(tv, "Info");
 	
-	// Add content to Start tab
-	lv_obj_t *label_start = lv_label_create(tab_start, NULL);
-	lv_label_set_text(label_start, "Welcome to Lindi ESP32!\nReady to start.");
-	lv_obj_align(label_start, NULL, LV_ALIGN_CENTER, 0, 0);
+	// Add digital clock to Start tab
+	clock_label = lv_label_create(tab_start, NULL);
+	lv_label_set_text(clock_label, "--:--:--");
+	// Use larger text by repeating the text with line breaks to make it visually bigger
+	lv_label_set_text(clock_label, "--:--:--");
+	lv_obj_align(clock_label, NULL, LV_ALIGN_IN_TOP_MID, 0, 40);
+	
+	// Create clock update task (1 second interval)
+	lv_task_create(clock_update_task, 1000, LV_TASK_PRIO_LOW, NULL);
 	
 	// Add content to Level tab
 	lv_obj_t *label_level = lv_label_create(tab_level, NULL);
@@ -275,11 +488,54 @@ void guiTask(void *pvParameter) {
 	lv_label_set_text(label_info, version_str);
 	lv_obj_align(label_info, NULL, LV_ALIGN_IN_TOP_MID, 0, 20);
 	
+	// Add WiFi status display
+	lv_obj_t *wifi_label = lv_label_create(tab_info, NULL);
+	char wifi_status[100];
+	snprintf(wifi_status, sizeof(wifi_status), 
+	         "WiFi: %s\nIP: %s", 
+	         wifi_connected ? "Connected" : "Disconnected",
+	         wifi_ip_addr);
+	lv_label_set_text(wifi_label, wifi_status);
+	lv_obj_align(wifi_label, label_info, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+	
+	// Add timezone selector
+	lv_obj_t *tz_cont = lv_cont_create(tab_info, NULL);
+	lv_cont_set_layout(tz_cont, LV_LAYOUT_ROW_MID);
+	lv_obj_set_width(tz_cont, lv_obj_get_width(tab_info) - 20);
+	lv_obj_align(tz_cont, wifi_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+	
+	lv_obj_t *tz_label = lv_label_create(tz_cont, NULL);
+	lv_label_set_text(tz_label, "Timezone:");
+	
+	timezone_selector = lv_dropdown_create(tz_cont, NULL);
+	lv_dropdown_set_options(timezone_selector, 
+	    "GMT-12\nGMT-11\nGMT-10\nGMT-9\nGMT-8\nGMT-7\nGMT-6\nGMT-5\nGMT-4\nGMT-3\nGMT-2\nGMT-1\n"
+	    "GMT+0\nGMT+1\nGMT+2\nGMT+3\nGMT+4\nGMT+5\nGMT+6\nGMT+7\nGMT+8\nGMT+9\nGMT+10\nGMT+11\nGMT+12");
+	lv_dropdown_set_selected(timezone_selector, 13);  // Default: GMT+1 (Amsterdam)
+	lv_obj_set_event_cb(timezone_selector, timezone_selector_cb);
+	
+	// Add winter time toggle
+	lv_obj_t *winter_cont = lv_cont_create(tab_info, NULL);
+	lv_cont_set_layout(winter_cont, LV_LAYOUT_ROW_MID);
+	lv_obj_set_width(winter_cont, lv_obj_get_width(tab_info) - 20);
+	lv_obj_align(winter_cont, tz_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+	
+	lv_obj_t *winter_label = lv_label_create(winter_cont, NULL);
+	lv_label_set_text(winter_label, "Winter Time");
+	
+	lv_obj_t *winter_switch = lv_switch_create(winter_cont, NULL);
+	if (winter_time_enabled) {
+		lv_switch_on(winter_switch, LV_ANIM_OFF);
+	} else {
+		lv_switch_off(winter_switch, LV_ANIM_OFF);
+	}
+	lv_obj_set_event_cb(winter_switch, winter_time_toggle_cb);
+	
 	// Add performance monitor toggle (scrollable with page)
 	lv_obj_t *perf_cont = lv_cont_create(tab_info, NULL);
 	lv_cont_set_layout(perf_cont, LV_LAYOUT_ROW_MID);
 	lv_obj_set_width(perf_cont, lv_obj_get_width(tab_info) - 20);
-	lv_obj_align(perf_cont, label_info, LV_ALIGN_OUT_BOTTOM_MID, 0, 40);
+	lv_obj_align(perf_cont, winter_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
 	lv_obj_t *perf_label = lv_label_create(perf_cont, NULL);
 	lv_label_set_text(perf_label, "Show FPS/CPU");
@@ -332,5 +588,57 @@ static void perf_monitor_toggle_cb(lv_obj_t *sw, lv_event_t e)
                 child = lv_obj_get_child(sys_layer, child);
             }
         }
+    }
+}
+
+// Callback for timezone selector dropdown
+static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e)
+{
+    if (e == LV_EVENT_VALUE_CHANGED) {
+        uint16_t selected = lv_dropdown_get_selected(dd);
+        // Convert dropdown index to timezone offset
+        // GMT-12 is index 0, GMT+0 is index 12, GMT+12 is index 24
+        timezone_offset = (int)selected - 12;
+        ESP_LOGI(TAG, "Timezone changed to GMT%+d", timezone_offset);
+    }
+}
+
+// Callback for winter time toggle
+static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e)
+{
+    if (e == LV_EVENT_VALUE_CHANGED) {
+        winter_time_enabled = lv_switch_get_state(sw);
+        save_winter_time_setting(winter_time_enabled);
+        ESP_LOGI(TAG, "Winter time %s", winter_time_enabled ? "enabled" : "disabled");
+    }
+}
+
+// Clock update task - called every second
+static void clock_update_task(lv_task_t *task)
+{
+    (void)task;
+    
+    // Get current time from system (NTP synced)
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    
+    // Apply timezone offset
+    now += timezone_offset * 3600;
+    
+    // Apply winter time adjustment (subtract 1 hour if winter time is enabled)
+    // Winter time means UTC+1 (CET), summer time means UTC+2 (CEST)
+    if (winter_time_enabled) {
+        now -= 3600; // Subtract 1 hour for winter time
+    }
+    
+    localtime_r(&now, &timeinfo);
+    
+    // Update digital clock display (24-hour format)
+    if (clock_label) {
+        char time_str[16];
+        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", 
+                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        lv_label_set_text(clock_label, time_str);
     }
 }
