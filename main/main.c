@@ -399,6 +399,21 @@ static bool perf_monitor_hidden = false;	// Flag to track if we've hidden the pe
 
 // Clock variables
 static lv_obj_t *clock_label = NULL;
+static lv_obj_t *analog_clock_gauge = NULL;
+
+// Custom formatter for clock hour labels
+// Gauge places labels at values 0,5,10,15,20,25,30,35,40,45,50,55
+static void clock_label_formatter(lv_obj_t *gauge, char *buf, int bufsize, int32_t value)
+{
+	// Map gauge position to clock hour
+	// +7 offset positions "12" at the top (0°) of the dial
+	int hour = ((value / 5) + 7) % 12;
+	if (hour == 0) {
+		snprintf(buf, bufsize, "12");
+	} else {
+		snprintf(buf, bufsize, "%d", hour);
+	}
+}
 
 void guiTask(void *pvParameter) {
     
@@ -480,7 +495,33 @@ void guiTask(void *pvParameter) {
 	lv_label_set_text(clock_label, "--:--:--");
 	// Use larger text by repeating the text with line breaks to make it visually bigger
 	lv_label_set_text(clock_label, "--:--:--");
-	lv_obj_align(clock_label, NULL, LV_ALIGN_IN_TOP_MID, 0, 40);
+	lv_obj_align(clock_label, NULL, LV_ALIGN_IN_TOP_MID, 0, 20);
+	
+	// Add analog clock gauge below digital clock
+	analog_clock_gauge = lv_gauge_create(tab_start, NULL);
+	lv_obj_set_size(analog_clock_gauge, 180, 180);
+	lv_obj_align(analog_clock_gauge, clock_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+	
+	// Configure gauge for clock: 330° arc (11/12 of circle) to ensure all 12 labels are drawn
+	// With 360° the first/last label overlap, causing LVGL to skip one
+	lv_gauge_set_scale(analog_clock_gauge, 330, 12, 12);  // 330° arc, 12 tick lines, 12 labels
+	lv_gauge_set_range(analog_clock_gauge, 0, 59);         // 0-59 range
+	lv_gauge_set_angle_offset(analog_clock_gauge, 225);    // Rotate to put 12 at top (0°), gap at bottom
+	
+	// Set up 3 needles: hour (white), minute (gray), second (red)
+	static lv_color_t needle_colors[3];
+	needle_colors[0] = LV_COLOR_MAKE(200, 200, 200);  // Hour hand - light gray
+	needle_colors[1] = LV_COLOR_MAKE(150, 150, 150);  // Minute hand - darker gray  
+	needle_colors[2] = LV_COLOR_RED;                   // Second hand - red
+	lv_gauge_set_needle_count(analog_clock_gauge, 3, needle_colors);
+	
+	// Set custom label formatter to show clock hours (12, 1, 2, 3...11)
+	lv_gauge_set_formatter_cb(analog_clock_gauge, clock_label_formatter);
+	
+	// Set initial values to 12:00:00
+	lv_gauge_set_value(analog_clock_gauge, 0, 0);   // Hour at 12
+	lv_gauge_set_value(analog_clock_gauge, 1, 0);   // Minute at 12
+	lv_gauge_set_value(analog_clock_gauge, 2, 0);   // Second at 12
 	
 	// Create clock update task (1 second interval)
 	lv_task_create(clock_update_task, 1000, LV_TASK_PRIO_LOW, NULL);
@@ -731,5 +772,26 @@ static void clock_update_task(lv_task_t *task)
         if (strcmp(current_text, time_str) != 0) {
             lv_label_set_text(clock_label, time_str);
         }
+    }
+    
+    // Update analog clock hands
+    if (analog_clock_gauge != NULL) {
+        int hour_12 = timeinfo.tm_hour % 12;  // Convert to 12-hour format
+        
+        // Add 45 to all values to rotate clock by 270° (puts 12 at top)
+        // Gauge coordinate system starts at 90° (6 o'clock), rotate to 0° (12 o'clock)
+        const int rotation_offset = 45;  // 3/4 of 60 = 270° rotation
+        
+        // Second hand: add offset and wrap around 60
+        int sec_value = (timeinfo.tm_sec + rotation_offset) % 60;
+        lv_gauge_set_value(analog_clock_gauge, 2, sec_value);
+        
+        // Minute hand: add offset and wrap around 60
+        int min_value = (timeinfo.tm_min + rotation_offset) % 60;
+        lv_gauge_set_value(analog_clock_gauge, 1, min_value);
+        
+        // Hour hand: smooth movement with rotation offset
+        int hour_value = ((hour_12 * 5) + (timeinfo.tm_min / 12) + rotation_offset) % 60;
+        lv_gauge_set_value(analog_clock_gauge, 0, hour_value);
     }
 }
