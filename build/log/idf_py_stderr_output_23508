@@ -1,0 +1,53 @@
+Command: ninja all
+info: INFO: Symbol LVGL_TOUCH_SPI_MISO defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:224
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:93
+info: INFO: Symbol LVGL_TOUCH_SPI_MOSI defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:235
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:103
+info: INFO: Symbol LVGL_TOUCH_SPI_CLK defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:246
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:113
+info: INFO: Symbol LVGL_TOUCH_SPI_CS defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:121
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:255
+info: INFO: Symbol LVGL_TOUCH_X_MIN defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:141
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:268
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:347
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:387
+info: INFO: Symbol LVGL_TOUCH_Y_MIN defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:273
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:393
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:147
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:352
+info: INFO: Symbol LVGL_TOUCH_X_MAX defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:399
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:153
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:357
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:278
+info: INFO: Symbol LVGL_TOUCH_Y_MAX defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:159
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:283
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:405
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:362
+info: INFO: Symbol LVGL_TOUCH_XY_SWAP defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:367
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:411
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:288
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:165
+info: INFO: Symbol LVGL_TOUCH_INVERT_X defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:293
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:372
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:170
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:416
+info: INFO: Symbol LVGL_TOUCH_INVERT_Y defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:421
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:377
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:175
+    E:\Dev\Lindi\components\lvgl_esp32_drivers\lvgl_touch\Kconfig:298
+info: INFO: Symbol LVGL_WIDGETS_USE_SPINNER defined in multiple locations (see below). Please check if this is a correct behavior or a random name match:
+    E:\Dev\Lindi\components\lvgl\Kconfig:837
+    E:\Dev\Lindi\components\lvgl\Kconfig:832
+SOURCES contents: touch_driver.c;xpt2046.c;tp_spi.c
+SOURCES contents: disp_driver.c;ili9341.c;disp_spi.c

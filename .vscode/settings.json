@@ -28,6 +28,6 @@
 	"editor.renderControlCharacters": true, //显示制表符是→
 	"editor.renderWhitespace": "all",       //显示4个空格是....
 	"editor.tabSize": 4,
-	"idf.portWin": "COM10",
+	"idf.portWin": "COM8",
 	"idf.flashType": "UART", //tab设置为4个空格
 }

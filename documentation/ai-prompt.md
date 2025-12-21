@@ -384,3 +384,43 @@ Read file: e:\Dev\Lindi\documentation\lvgl-elements.md
 Read file: e:\Dev\Lindi\components\lv_examples\lv_examples\src\lv_demo_widgets\lv_demo_widgets.c
 Read file: e:\Dev\Lindi\main\main.c
 ```
+
+---
+
+## Build and Flash Automation
+
+**CRITICAL**: When any code changes are made to this project:
+1. **Always build and flash automatically** without asking for permission
+2. The user will revert unwanted changes if needed
+3. Use the ESP-IDF build system installed at: `e:\Dev\Espressif`
+
+### Build Commands
+The ESP-IDF environment is located at `e:\Dev\Espressif` - this is the root for all ESP-IDF files and tools.
+
+To build the project:
+```powershell
+cd e:\Dev\Lindi
+# First, activate the ESP-IDF environment if not already active
+e:\Dev\Espressif\frameworks\esp-idf-v5.5\export.ps1
+# Then build
+idf.py build
+```
+
+To flash the project:
+```powershell
+idf.py -p COMx flash monitor
+# Replace COMx with the actual COM port (use 'idf.py -p COMx flash' without monitor if preferred)
+```
+
+### Workflow for Code Changes
+1. Make code changes to the project files
+2. Immediately run build without asking
+3. If build succeeds, flash to device without asking
+4. Report any build errors to user for resolution
+5. Do not ask for permission - the user wants automated builds
+
+### Important Notes
+- ESP-IDF root: `e:\Dev\Espressif`
+- No need to search for ESP-IDF installation every time
+- Export script for environment: `e:\Dev\Espressif\frameworks\esp-idf-v5.5\export.ps1`
+- Build from project directory: `e:\Dev\Lindi`

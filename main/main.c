@@ -140,6 +140,7 @@ static int timezone_offset = 1; // Default: Amsterdam (GMT+1)
 static bool time_synced = false;
 static lv_obj_t *timezone_selector = NULL;
 static bool winter_time_enabled = false; // Default: off (use summer time)
+static bool dark_theme_enabled = false;  // Default: light theme
 
 #define NVS_NAMESPACE "lindi_cfg"
 
@@ -161,6 +162,7 @@ static void perf_monitor_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void clock_update_task(lv_task_t *task);
 static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
 static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
 
 // WiFi event handler
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -237,6 +239,41 @@ void save_winter_time_setting(bool enabled)
             err = nvs_commit(nvs_handle);
             if (err == ESP_OK) {
                 ESP_LOGI(TAG, "Saved winter time setting: %s", enabled ? "enabled" : "disabled");
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Load dark theme setting from NVS
+void load_dark_theme_setting(void)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        uint8_t value = 0;
+        err = nvs_get_u8(nvs_handle, "dark_theme", &value);
+        if (err == ESP_OK) {
+            dark_theme_enabled = (value != 0);
+            ESP_LOGI(TAG, "Loaded dark theme setting: %s", dark_theme_enabled ? "enabled" : "disabled");
+        } else {
+            ESP_LOGI(TAG, "Dark theme setting not found, using default (disabled)");
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Save dark theme setting to NVS
+void save_dark_theme_setting(bool enabled)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(nvs_handle, "dark_theme", enabled ? 1 : 0);
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Saved dark theme setting: %s", enabled ? "enabled" : "disabled");
             }
         }
         nvs_close(nvs_handle);
@@ -334,17 +371,19 @@ void app_main() {
 	// Load winter time setting from NVS
 	load_winter_time_setting();
 	
+	// Load dark theme setting from NVS
+	load_dark_theme_setting();
+	
 	// Initialize event loop
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
 	
-	// Initialize WiFi
+	// Initialize WiFi with power save mode
 	ESP_LOGI(TAG, "Starting WiFi...");
 	wifi_init_sta();
 	
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
 	// 如果要使用任务创建图形，则需要创建固定核心任务,否则可能会出现诸如内存损坏等问题
-	// 创建一个固定到其中一个核心的FreeRTOS任务，选择核心1
-	xTaskCreatePinnedToCore(guiTask, "gui", 4096*2, NULL, 0, NULL, 1);
+	xTaskCreate(guiTask, "gui", 4096*2, NULL, 0, NULL);
 }
 
 static void lv_tick_task(void *arg) {
@@ -544,6 +583,33 @@ void guiTask(void *pvParameter) {
 	lv_switch_off(perf_switch, LV_ANIM_OFF);  // OFF by default
 	lv_obj_set_event_cb(perf_switch, perf_monitor_toggle_cb);
 	
+	// Add dark theme toggle
+	lv_obj_t *theme_cont = lv_cont_create(tab_info, NULL);
+	lv_cont_set_layout(theme_cont, LV_LAYOUT_ROW_MID);
+	lv_obj_set_width(theme_cont, lv_obj_get_width(tab_info) - 20);
+	lv_obj_align(theme_cont, perf_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+	
+	lv_obj_t *theme_label = lv_label_create(theme_cont, NULL);
+	lv_label_set_text(theme_label, "Dark Theme");
+	
+	lv_obj_t *theme_switch = lv_switch_create(theme_cont, NULL);
+	if (dark_theme_enabled) {
+		lv_switch_on(theme_switch, LV_ANIM_OFF);
+		// Apply dark theme on startup
+		uint32_t flags = LV_THEME_MATERIAL_FLAG_DARK;
+		lv_theme_t *th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, 
+		                                         LV_THEME_DEFAULT_COLOR_SECONDARY,
+		                                         flags,
+		                                         LV_THEME_DEFAULT_FONT_SMALL, 
+		                                         LV_THEME_DEFAULT_FONT_NORMAL, 
+		                                         LV_THEME_DEFAULT_FONT_SUBTITLE, 
+		                                         LV_THEME_DEFAULT_FONT_TITLE);
+		lv_theme_set_act(th);
+	} else {
+		lv_switch_off(theme_switch, LV_ANIM_OFF);
+	}
+	lv_obj_set_event_cb(theme_switch, dark_theme_toggle_cb);
+
     while (1) {
 		vTaskDelay(1);
 		// 尝试锁定信号量，如果成功，请调用lvgl的东西
@@ -613,6 +679,25 @@ static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e)
     }
 }
 
+// Callback for dark theme toggle
+static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e)
+{
+    if (e == LV_EVENT_VALUE_CHANGED) {
+        dark_theme_enabled = lv_switch_get_state(sw);
+        save_dark_theme_setting(dark_theme_enabled);
+        uint32_t flags = dark_theme_enabled ? LV_THEME_MATERIAL_FLAG_DARK : LV_THEME_MATERIAL_FLAG_LIGHT;
+        lv_theme_t *th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, 
+                                                 LV_THEME_DEFAULT_COLOR_SECONDARY,
+                                                 flags,
+                                                 LV_THEME_DEFAULT_FONT_SMALL, 
+                                                 LV_THEME_DEFAULT_FONT_NORMAL, 
+                                                 LV_THEME_DEFAULT_FONT_SUBTITLE, 
+                                                 LV_THEME_DEFAULT_FONT_TITLE);
+        lv_theme_set_act(th);
+        ESP_LOGI(TAG, "Theme changed to %s", dark_theme_enabled ? "dark" : "light");
+    }
+}
+
 // Clock update task - called every second
 static void clock_update_task(lv_task_t *task)
 {
@@ -635,10 +720,16 @@ static void clock_update_task(lv_task_t *task)
     localtime_r(&now, &timeinfo);
     
     // Update digital clock display (24-hour format)
+    // Note: This is called from LVGL task context, so semaphore is already held
     if (clock_label) {
         char time_str[16];
         snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", 
                  timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-        lv_label_set_text(clock_label, time_str);
+        
+        // Only update if the text actually changed to avoid unnecessary redraws
+        const char *current_text = lv_label_get_text(clock_label);
+        if (strcmp(current_text, time_str) != 0) {
+            lv_label_set_text(clock_label, time_str);
+        }
     }
 }

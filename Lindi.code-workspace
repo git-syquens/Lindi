@@ -1,0 +1,33 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"array": "c",
+			"vector": "c",
+			"xstring": "c",
+			"xutility": "c",
+			"random": "c",
+			"*.ipp": "c",
+			"cstddef": "cpp",
+			"fstream": "cpp",
+			"functional": "cpp",
+			"limits": "cpp",
+			"map": "cpp",
+			"memory": "cpp",
+			"mutex": "cpp",
+			"system_error": "cpp",
+			"unordered_map": "cpp",
+			"xhash": "cpp",
+			"xiosbase": "cpp",
+			"xlocale": "cpp",
+			"xtree": "cpp",
+			"ratio": "c",
+			"esp_event.h": "c",
+			"freertos.h": "c"
+		}
+	}
+}
