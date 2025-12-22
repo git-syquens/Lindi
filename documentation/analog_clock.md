@@ -160,14 +160,163 @@ With 360° and linear mapping, hands align perfectly at all positions:
 
 ## Summary
 
-The analog clock uses LVGL's gauge widget configured for perfect accuracy:
+The analog clock is now implemented as a modular, reusable component:
+- **Modular Design**: Separate files for clock component logic
 - **360° full circle** with 60 tick marks for linear mapping
 - **No labels** for cleaner appearance
 - **Three colored needles** (gray hour, gray minute, red second) with 1.5x length
 - **Single rotation offset** (30 units) for all hands
 - **Perfect alignment** at all clock positions
+- **NVS persistence** of clock mode preference (analog/digital)
+- **Toggle button** for mode switching
 
 All configuration values are empirically calibrated and documented above for future reference.
+
+---
+
+## Modularization
+
+### Architecture (Option A: External Task Management)
+
+The clock component is designed with **external task management** for maximum flexibility:
+
+**Component Responsibility**:
+- Create and manage LVGL widgets (analog gauge, digital label, toggle button)
+- Handle NVS persistence of clock mode preference
+- Toggle between analog and digital modes
+- Update display when provided with time data
+
+**Caller Responsibility**:
+- Manage LVGL task that calls clock_update() periodically
+- Retrieve current time from system or RTC
+- Control update frequency (typically 1 second)
+
+This design allows the clock component to be used in different contexts:
+- With WiFi + SNTP time synchronization (current implementation)
+- With external RTC module
+- With manual time setting
+- Different update frequencies for power optimization
+
+### Files
+
+**[main/clock_component.h](../main/clock_component.h)** - Public API:
+- `clock_config_t` structure for initialization parameters
+- `clock_handle_t` opaque handle to clock instance
+- `clock_create()` - Create clock component
+- `clock_update()` - Update display with provided time
+- `clock_toggle_mode()` - Toggle between analog/digital
+- `clock_set_mode()` - Programmatically set mode
+- `clock_is_digital_mode()` - Query current mode
+- `clock_destroy()` - Cleanup and free resources
+
+**[main/clock_component.c](../main/clock_component.c)** - Implementation:
+- Internal clock widget management
+- NVS persistence using namespace "lindi_cfg", key "digital_mode"
+- Toggle button event handling
+- Analog and digital clock update logic
+
+**[main/main.c](../main/main.c)** - Integration:
+- Creates clock component in guiTask()
+- Updates clock every second from LVGL task
+- Retrieves time from system time (WiFi + SNTP synchronized)
+
+### Usage Example
+
+```c
+#include "clock_component.h"
+
+// Global handle
+static clock_handle_t my_clock = NULL;
+
+// In GUI initialization function:
+void init_gui(lv_obj_t *parent_tab) {
+    clock_config_t clock_cfg = {
+        .parent = parent_tab,
+        .x_offset = 0,
+        .y_offset = 0,
+        .start_with_digital = false,  // Default to analog (NVS will override)
+        .show_toggle_button = true
+    };
+    my_clock = clock_create(&clock_cfg);
+    if (!my_clock) {
+        ESP_LOGE("TAG", "Failed to create clock component");
+    }
+}
+
+// In periodic update task (e.g., LVGL task, called every 1 second):
+void clock_update_task(lv_task_t *task) {
+    if (!my_clock) return;
+    
+    // Get current time from system
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    // Update clock component
+    clock_update(my_clock, &timeinfo);
+}
+
+// Programmatic mode control (optional):
+void switch_to_digital() {
+    if (my_clock) {
+        clock_set_mode(my_clock, true);  // true = digital mode
+    }
+}
+
+// Query current mode (optional):
+void log_current_mode() {
+    if (my_clock) {
+        bool is_digital = clock_is_digital_mode(my_clock);
+        ESP_LOGI("TAG", "Clock is in %s mode", is_digital ? "digital" : "analog");
+    }
+}
+
+// Cleanup on exit:
+void cleanup() {
+    if (my_clock) {
+        clock_destroy(my_clock);
+        my_clock = NULL;
+    }
+}
+```
+
+### Configuration Options
+
+When creating the clock with `clock_create()`, you can customize:
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `parent` | `lv_obj_t*` | Parent LVGL object | Required |
+| `x_offset` | `lv_coord_t` | Horizontal position offset | 0 |
+| `y_offset` | `lv_coord_t` | Vertical position offset | 0 |
+| `start_with_digital` | `bool` | Initial mode if no NVS data | false (analog) |
+| `show_toggle_button` | `bool` | Show mode toggle button | true |
+
+**Note**: The `start_with_digital` parameter is only used if no mode preference is saved in NVS. Once the user toggles the mode, the NVS setting takes precedence.
+
+### Design Tradeoffs
+
+**Why External Task Management (Option A)?**
+
+Pros:
+- ✅ Caller controls update frequency (power optimization)
+- ✅ Works with any time source (SNTP, RTC, manual)
+- ✅ No threading complexity within component
+- ✅ Simpler component implementation
+- ✅ LVGL thread-safety managed by caller
+
+Cons:
+- ❌ Caller must periodically call clock_update()
+- ❌ Slightly more integration code in main.c
+
+**Alternative: Internal Task Management (Option B - Not Implemented)**
+
+Would have the component create its own LVGL task internally. Rejected because:
+- More complex component implementation
+- Less flexible for different use cases
+- Harder to control update frequency
+- Component would need to handle LVGL thread-safety
 
 ---
 
@@ -200,5 +349,7 @@ lv_obj_set_style_local_pad_inner(gauge, part, state, padding);
 ---
 
 ## Files Modified
-- [main/main.c](../main/main.c) - Main implementation
+- [main/main.c](../main/main.c) - Main application with clock integration
+- [main/clock_component.h](../main/clock_component.h) - Clock component public API
+- [main/clock_component.c](../main/clock_component.c) - Clock component implementation
 - [documentation/analog_clock.md](analog_clock.md) - This documentation
