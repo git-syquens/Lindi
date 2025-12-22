@@ -10,7 +10,7 @@ E:/Dev/Lindi/build/CMakeFiles/monitor.dir
 E:/Dev/Lindi/build/CMakeFiles/flash.dir
 E:/Dev/Lindi/build/CMakeFiles/encrypted-flash.dir
 E:/Dev/Lindi/build/CMakeFiles/_project_elf_src.dir
-E:/Dev/Lindi/build/CMakeFiles/lvgl-demo.elf.dir
+E:/Dev/Lindi/build/CMakeFiles/lindi.elf.dir
 E:/Dev/Lindi/build/CMakeFiles/size.dir
 E:/Dev/Lindi/build/CMakeFiles/size-files.dir
 E:/Dev/Lindi/build/CMakeFiles/size-components.dir

@@ -22,4 +22,4 @@ set confirm off
 set confirm on
 
 # Load application symbols
-file E:/Dev/Lindi/build/lvgl-demo.elf
+file E:/Dev/Lindi/build/lindi.elf

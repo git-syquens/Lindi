@@ -1,15 +1,15 @@
-/* LVGL Example project
+/* Lindi ESP32 Project
 
-液晶驱动芯片支持
-ILI9341 240*320 3.2     14-25FPS
-ILI9488 320*480 3.5     3-7FPS
+LCD Driver IC Support:
+ILI9341 240*320 3.2"    14-25FPS
+ILI9488 320*480 3.5"    3-7FPS
 
 ENC28J60_INT	GPIO34
 ENC28J60_CS		GPIO5
 FLASH_CS		GPIO21
 SD_CS			GPIO22
 
-VSPI SPI3_HOST=2	SD、FALASH、ENC28J60
+VSPI SPI3_HOST=2	SD, FLASH, ENC28J60
 CS0		GPIO_5
 SCLK	GPIO_18
 MISO	GPIO_19
@@ -17,7 +17,7 @@ MOSI	GPIO_23
 QUADWP	GPIO_22
 QUADHD	GPIO_21
 
-HSPI SPI2_HOST=1   液晶独用
+HSPI SPI2_HOST=1   LCD exclusive
 CS0		GPIO_15
 SCLK	GPIO_14
 MISO	GPIO_12
@@ -26,42 +26,42 @@ QUADWP	GPIO_2
 QUADHD	GPIO_4
 
 
-液晶SPI引脚定义  HSPI    SPI2_HOST=1
-omponent config → LVGL TFT Display controller → Display Pin Assignments
+LCD SPI Pin Definitions  HSPI    SPI2_HOST=1
+Component config → LVGL TFT Display controller → Display Pin Assignments
 MOSI (Master Out Slave In)			GPIO_13
 MISO (Slave Out Master In)			None		GPIO_12
 CLK (SCK / Serial Clock)			GPIO_14
 CS (Slave Select)					GPIO_15
 DC (Data / Command)					GPIO_2
-Reset								GOIO_4
+Reset								GPIO_4
 Backlight							None
 
-触摸SPI引脚定义components\lvgl_esp32_drivers\lvgl_touch\xpt2046.h
-omponent config → LVGL Touch controller → Touchpanel (XPT2046) Pin Assignments
-MISO (Master In Slave Out)			GPIO_39(SENSOR_VN只能输入)
+Touch SPI Pin Definitions components\lvgl_esp32_drivers\lvgl_touch\xpt2046.h
+Component config → LVGL Touch controller → Touchpanel (XPT2046) Pin Assignments
+MISO (Master In Slave Out)			GPIO_39(SENSOR_VN input only)
 MOSI (Master Out Slave In)			GPIO_32
 CLK (SCK / Serial Clock)			GPIO_33
 CS (Slave Select)					GPIO_25
-IRQ (Interrupt Request)				GPIO_36(SENSOR_VP只能输入)      
+IRQ (Interrupt Request)				GPIO_36(SENSOR_VP input only)      
 
 
-==================================================模块左==================================================
-3V3			3V3			2		供电
-复位按钮	 EN			 3		高电平：芯片使能/低电平：芯片关闭/注意：不能让 EN 管脚浮空
-TP_IRQ		SENSOR_VP	4		GPIO36, ADC1_CH0, RTC_GPIO0			只能输入
-TP_MISO		SENSOR_VN	5		GPIO39, ADC1_CH3, RTC_GPIO3			只能输入
-RLight		IO34		6		GPIO34, ADC1_CH6, RTC_GPIO4			只能输入
-IRRev		IO35		7		GPIO35, ADC1_CH7, RTC_GPIO5			只能输入
-TP_MOSI		IO32		8		GPIO32, XTAL_32K_P (32.768 kHz 晶振输入), ADC1_CH4, TOUCH9,RTC_GPIO9
-TP_CS		IO33		9		GPIO33, XTAL_32K_N (32.768 kHz 晶振输出), ADC1_CH5, TOUCH8,RTC_GPIO8
+==================================================Module Left==================================================
+3V3			3V3			2		Power supply
+Reset button	 EN			 3		High: chip enabled / Low: chip disabled / Note: Do not leave EN pin floating
+TP_IRQ		SENSOR_VP	4		GPIO36, ADC1_CH0, RTC_GPIO0			Input only
+TP_MISO		SENSOR_VN	5		GPIO39, ADC1_CH3, RTC_GPIO3			Input only
+RLight		IO34		6		GPIO34, ADC1_CH6, RTC_GPIO4			Input only
+IRRev		IO35		7		GPIO35, ADC1_CH7, RTC_GPIO5			Input only
+TP_MOSI		IO32		8		GPIO32, XTAL_32K_P (32.768 kHz crystal input), ADC1_CH4, TOUCH9,RTC_GPIO9
+TP_CS		IO33		9		GPIO33, XTAL_32K_N (32.768 kHz crystal output), ADC1_CH5, TOUCH8,RTC_GPIO8
 TP_CLK		IO25		10		GPIO25, DAC_1, ADC2_CH8, RTC_GPIO6, EMAC_RXD0
 DHT11		IO26		11		GPIO26, DAC_2, ADC2_CH9, RTC_GPIO7, EMAC_RXD1
 TouchPad	IO27		12		GPIO27, ADC2_CH7, TOUCH7, RTC_GPIO17, EMAC_RX_DV
 TFT_CLK		IO14		13		GPIO14, ADC2_CH6, TOUCH6, RTC_GPIO16, MTMS, HSPICLK,HS2_CLK, SD_CLK, EMAC_TXD2
 TFT_MISO	IO12		14		GPIO12, ADC2_CH5, TOUCH5, RTC_GPIO15, MTDI, HSPIQ,HS2_DATA2, SD_DATA2, EMAC_TXD3
 
-================================================模块下==================================================
-GND			GND			15		接地
+================================================Module Bottom==================================================
+GND			GND			15		Ground
 TFT_MOSI	IO13		16		GPIO13, ADC2_CH4, TOUCH4, RTC_GPIO14, MTCK, HSPID,HS2_DATA3, SD_DATA3, EMAC_RX_ER
 XXXX		SD2			17		NC
 XXXX		SD3			18		NC
@@ -72,8 +72,8 @@ XXXX		SD1			22		NC
 TFT_CS		IO15		23		GPIO15, ADC2_CH3, TOUCH3, MTDO, HSPICS0, RTC_GPIO13,HS2_CMD, SD_CMD, EMAC_RXD3
 TFT_DC		IO2			24		GPIO2, ADC2_CH2, TOUCH2, RTC_GPIO12, HSPIWP, HS2_DATA0,SD_DATA0
 
-================================================模块右==================================================
-GND			GND			38		接地
+================================================Module Right==================================================
+GND			GND			38		Ground
 SD_MOSI		IO23		37		GPIO23, VSPID, HS1_STROBE
 IIC_SDA		IO22		36		GPIO22, VSPIWP, U0RTS, EMAC_TXD1
 UART_RXD	TXD0		35		GPIO1, U0TXD, CLK_OUT3, EMAC_RXD2
@@ -86,7 +86,7 @@ SD_CS		IO5			29		GPIO5, VSPICS0, HS1_DATA6, EMAC_RX_CLK
 IRSend		IO17		28		GPIO17, HS1_DATA5, U2TXD, EMAC_CLK_OUT_180
 RGBLight	IO16		27		GPIO16, HS1_DATA4, U2RXD, EMAC_CLK_OUT
 TFT_Reset	IO4			26		GPIO4, ADC2_CH0, TOUCH0, RTC_GPIO10, HSPIHD, HS2_DATA1,SD_DATA1, EMAC_TX_ER
-Flash按钮	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
+Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 
  */
 #include <stdbool.h>
@@ -112,9 +112,9 @@ Flash按钮	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "freertos/semphr.h"
 #include "freertos/event_groups.h"
 
-// Littlevgl 头文件
-#include "lvgl/lvgl.h"			// LVGL头文件
-#include "lvgl_helpers.h"		// 助手 硬件驱动相关
+// Littlevgl header files
+#include "lvgl/lvgl.h"			// LVGL header file
+#include "lvgl_helpers.h"		// Helper - hardware driver related
 
 #include "lv_examples/src/lv_demo_widgets/lv_demo_widgets.h"
 
@@ -833,34 +833,11 @@ static void clock_update_task(lv_task_t *task)
 {
     (void)task;
     
-    // ===== TEST MODE: Cycle through fixed times for calibration =====
-    static int test_index = 0;
-    static int tick_count = 0;
-    
-    // Test times: {hour, min, sec}
-    static const int test_times[][3] = {
-        {1, 10, 15},   // 01:10:15
-        {15, 0, 20},   // 15:00:20 (3 PM)
-        {17, 40, 50}   // 17:40:50 (5:40 PM)
-    };
-    static const int num_tests = 3;
-    
-    // Use test time instead of real time
+    // Get current time
+    time_t now;
     struct tm timeinfo;
-    timeinfo.tm_hour = test_times[test_index][0];
-    timeinfo.tm_min = test_times[test_index][1];
-    timeinfo.tm_sec = test_times[test_index][2];
-    
-    // Print to serial
-    printf("TEST TIME: %02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-    
-    // Advance to next time every 10 seconds (task runs at 1000ms)
-    tick_count++;
-    if (tick_count >= 10) {
-        tick_count = 0;
-        test_index = (test_index + 1) % num_tests;
-    }
-    // ===== END TEST MODE =====
+    time(&now);
+    localtime_r(&now, &timeinfo);
     
     // Update digital clock display (24-hour format)
     // Note: This is called from LVGL task context, so semaphore is already held
