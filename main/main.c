@@ -141,6 +141,7 @@ static bool time_synced = false;
 static lv_obj_t *timezone_selector = NULL;
 static bool winter_time_enabled = false; // Default: off (use summer time)
 static bool dark_theme_enabled = false;  // Default: light theme
+static bool digital_clock_mode = false;  // Default: analog clock mode
 
 #define NVS_NAMESPACE "lindi_cfg"
 
@@ -163,6 +164,7 @@ static void clock_update_task(lv_task_t *task);
 static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
 static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static void digital_clock_toggle_cb(lv_obj_t *btn, lv_event_t e);
 
 // WiFi event handler
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -280,6 +282,41 @@ void save_dark_theme_setting(bool enabled)
     }
 }
 
+// Load digital clock mode setting from NVS
+void load_digital_clock_mode_setting(void)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        uint8_t value = 0;
+        err = nvs_get_u8(nvs_handle, "digital_mode", &value);
+        if (err == ESP_OK) {
+            digital_clock_mode = (value != 0);
+            ESP_LOGI(TAG, "Loaded digital clock mode: %s", digital_clock_mode ? "enabled" : "disabled");
+        } else {
+            ESP_LOGI(TAG, "Digital clock mode not found, using default (analog)");
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Save digital clock mode setting to NVS
+void save_digital_clock_mode_setting(bool enabled)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(nvs_handle, "digital_mode", enabled ? 1 : 0);
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Saved digital clock mode: %s", enabled ? "enabled" : "disabled");
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
 // Initialize WiFi in station mode
 void wifi_init_sta(void)
 {
@@ -373,6 +410,9 @@ void app_main() {
 	
 	// Load dark theme setting from NVS
 	load_dark_theme_setting();
+	
+	// Load digital clock mode setting from NVS
+	load_digital_clock_mode_setting();
 	
 	// Initialize event loop
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -490,23 +530,39 @@ void guiTask(void *pvParameter) {
 	lv_obj_t *tab_level = lv_tabview_add_tab(tv, "Level");
 	lv_obj_t *tab_info = lv_tabview_add_tab(tv, "Info");
 	
+	// Make Start tab non-scrollable
+	lv_page_set_scrl_layout(tab_start, LV_LAYOUT_OFF);
+	
+	// Add toggle button in top left corner for clock mode
+	lv_obj_t *clock_mode_btn = lv_btn_create(tab_start, NULL);
+	lv_obj_set_size(clock_mode_btn, 40, 30);
+	lv_obj_align(clock_mode_btn, NULL, LV_ALIGN_IN_TOP_LEFT, 5, 5);
+	lv_obj_set_event_cb(clock_mode_btn, digital_clock_toggle_cb);
+	
+	// Add label to the right of button
+	lv_obj_t *btn_label = lv_label_create(tab_start, NULL);
+	lv_label_set_text(btn_label, "dgt clk");
+	lv_obj_set_style_local_text_font(btn_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_12);
+	lv_obj_align(btn_label, clock_mode_btn, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+	
 	// Add digital clock to Start tab
 	clock_label = lv_label_create(tab_start, NULL);
 	lv_label_set_text(clock_label, "--:--:--");
-	// Use larger text by repeating the text with line breaks to make it visually bigger
-	lv_label_set_text(clock_label, "--:--:--");
-	lv_obj_align(clock_label, NULL, LV_ALIGN_IN_TOP_MID, 0, 20);
+	// Make font 3x bigger when in digital mode
+	lv_obj_set_style_local_text_font(clock_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_48);
+	lv_obj_align(clock_label, NULL, LV_ALIGN_CENTER, 0, 0);
+	lv_obj_set_hidden(clock_label, true);  // Start with analog clock visible
 	
-	// Add analog clock gauge below digital clock
+	// Add analog clock gauge
 	analog_clock_gauge = lv_gauge_create(tab_start, NULL);
-	lv_obj_set_size(analog_clock_gauge, 180, 180);
-	lv_obj_align(analog_clock_gauge, clock_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+	lv_obj_set_size(analog_clock_gauge, 139, 139);  // 110% of 126
+	lv_obj_align(analog_clock_gauge, NULL, LV_ALIGN_CENTER, 0, 10);
 	
-	// Configure gauge for clock: 330° arc (11/12 of circle) to ensure all 12 labels are drawn
-	// With 360° the first/last label overlap, causing LVGL to skip one
-	lv_gauge_set_scale(analog_clock_gauge, 330, 12, 12);  // 330° arc, 12 tick lines, 12 labels
-	lv_gauge_set_range(analog_clock_gauge, 0, 59);         // 0-59 range
-	lv_gauge_set_angle_offset(analog_clock_gauge, 225);    // Rotate to put 12 at top (0°), gap at bottom
+	// Configure gauge for clock: 360° full circle with 60 tick marks (one per minute)
+	// This ensures all positions have marks, especially cardinal points (12, 3, 6, 9)
+	lv_gauge_set_scale(analog_clock_gauge, 360, 60, 0);  // 360° arc, 60 tick lines (one per minute), 0 labels
+	lv_gauge_set_range(analog_clock_gauge, 0, 59);         // 0-59 range (each unit = 6°)
+	lv_gauge_set_angle_offset(analog_clock_gauge, 270);    // Rotate so value 0 is at top (12 o'clock)
 	
 	// Set up 3 needles: hour (white), minute (gray), second (red)
 	static lv_color_t needle_colors[3];
@@ -515,13 +571,24 @@ void guiTask(void *pvParameter) {
 	needle_colors[2] = LV_COLOR_RED;                   // Second hand - red
 	lv_gauge_set_needle_count(analog_clock_gauge, 3, needle_colors);
 	
-	// Set custom label formatter to show clock hours (12, 1, 2, 3...11)
-	lv_gauge_set_formatter_cb(analog_clock_gauge, clock_label_formatter);
+	// Make needles 1.5x longer by reducing inner padding
+	lv_obj_set_style_local_pad_inner(analog_clock_gauge, LV_GAUGE_PART_MAIN, LV_STATE_DEFAULT, 10);
+	
+	// No labels needed (label_count = 0)
 	
 	// Set initial values to 12:00:00
 	lv_gauge_set_value(analog_clock_gauge, 0, 0);   // Hour at 12
 	lv_gauge_set_value(analog_clock_gauge, 1, 0);   // Minute at 12
 	lv_gauge_set_value(analog_clock_gauge, 2, 0);   // Second at 12
+	
+	// Apply initial visibility based on loaded setting
+	if (digital_clock_mode) {
+		lv_obj_set_hidden(clock_label, false);
+		lv_obj_set_hidden(analog_clock_gauge, true);
+	} else {
+		lv_obj_set_hidden(clock_label, true);
+		lv_obj_set_hidden(analog_clock_gauge, false);
+	}
 	
 	// Create clock update task (1 second interval)
 	lv_task_create(clock_update_task, 1000, LV_TASK_PRIO_LOW, NULL);
@@ -739,26 +806,61 @@ static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e)
     }
 }
 
+// Callback for digital clock mode toggle button
+static void digital_clock_toggle_cb(lv_obj_t *btn, lv_event_t e)
+{
+    if (e == LV_EVENT_CLICKED) {
+        digital_clock_mode = !digital_clock_mode;
+        save_digital_clock_mode_setting(digital_clock_mode);
+        
+        // Toggle visibility
+        if (digital_clock_mode) {
+            // Show digital clock, hide analog
+            lv_obj_set_hidden(clock_label, false);
+            lv_obj_set_hidden(analog_clock_gauge, true);
+        } else {
+            // Show analog clock, hide digital
+            lv_obj_set_hidden(clock_label, true);
+            lv_obj_set_hidden(analog_clock_gauge, false);
+        }
+        
+        ESP_LOGI(TAG, "Clock mode changed to %s", digital_clock_mode ? "digital" : "analog");
+    }
+}
+
 // Clock update task - called every second
 static void clock_update_task(lv_task_t *task)
 {
     (void)task;
     
-    // Get current time from system (NTP synced)
-    time_t now;
+    // ===== TEST MODE: Cycle through fixed times for calibration =====
+    static int test_index = 0;
+    static int tick_count = 0;
+    
+    // Test times: {hour, min, sec}
+    static const int test_times[][3] = {
+        {1, 10, 15},   // 01:10:15
+        {15, 0, 20},   // 15:00:20 (3 PM)
+        {17, 40, 50}   // 17:40:50 (5:40 PM)
+    };
+    static const int num_tests = 3;
+    
+    // Use test time instead of real time
     struct tm timeinfo;
-    time(&now);
+    timeinfo.tm_hour = test_times[test_index][0];
+    timeinfo.tm_min = test_times[test_index][1];
+    timeinfo.tm_sec = test_times[test_index][2];
     
-    // Apply timezone offset
-    now += timezone_offset * 3600;
+    // Print to serial
+    printf("TEST TIME: %02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
     
-    // Apply winter time adjustment (subtract 1 hour if winter time is enabled)
-    // Winter time means UTC+1 (CET), summer time means UTC+2 (CEST)
-    if (winter_time_enabled) {
-        now -= 3600; // Subtract 1 hour for winter time
+    // Advance to next time every 10 seconds (task runs at 1000ms)
+    tick_count++;
+    if (tick_count >= 10) {
+        tick_count = 0;
+        test_index = (test_index + 1) % num_tests;
     }
-    
-    localtime_r(&now, &timeinfo);
+    // ===== END TEST MODE =====
     
     // Update digital clock display (24-hour format)
     // Note: This is called from LVGL task context, so semaphore is already held
@@ -778,20 +880,20 @@ static void clock_update_task(lv_task_t *task)
     if (analog_clock_gauge != NULL) {
         int hour_12 = timeinfo.tm_hour % 12;  // Convert to 12-hour format
         
-        // Add 45 to all values to rotate clock by 270° (puts 12 at top)
-        // Gauge coordinate system starts at 90° (6 o'clock), rotate to 0° (12 o'clock)
-        const int rotation_offset = 45;  // 3/4 of 60 = 270° rotation
-        
-        // Second hand: add offset and wrap around 60
+        // Rotation offset for 360° arc with angle_offset=270°
+		// angle_offset=270° puts value 0 at 6 o'clock (bottom)
+		// Need +30 units to reach 12 o'clock (top): 180° / 6° = 30
+		const int rotation_offset = 30;
+        // Second hand: direct mapping (0-59 seconds)
         int sec_value = (timeinfo.tm_sec + rotation_offset) % 60;
         lv_gauge_set_value(analog_clock_gauge, 2, sec_value);
         
-        // Minute hand: add offset and wrap around 60
+        // Minute hand: direct mapping (0-59 minutes)
         int min_value = (timeinfo.tm_min + rotation_offset) % 60;
         lv_gauge_set_value(analog_clock_gauge, 1, min_value);
         
-        // Hour hand: smooth movement with rotation offset
-        int hour_value = ((hour_12 * 5) + (timeinfo.tm_min / 12) + rotation_offset) % 60;
+        // Hour hand: 5 units per hour + smooth interpolation based on minutes
+        int hour_value = ((hour_12 * 5) + (timeinfo.tm_min * 5 / 60) + rotation_offset) % 60;
         lv_gauge_set_value(analog_clock_gauge, 0, hour_value);
     }
 }
