@@ -117,12 +117,11 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "lvgl/lvgl.h"			// LVGL header file
 #include "lvgl_helpers.h"		// Helper - hardware driver related
 #include "clock_component.h"		// Modular clock component
+#include "wifi_credentials.h"		// WiFi credentials (local only, not in git)
 
 #include "lv_examples/src/lv_demo_widgets/lv_demo_widgets.h"
 
 // WiFi Configuration
-#define WIFI_SSID      "YOUR_WIFI_SSID"
-#define WIFI_PASS      "YOUR_WIFI_PASSWORD"
 #define WIFI_MAXIMUM_RETRY  5
 
 // WiFi event group bits
