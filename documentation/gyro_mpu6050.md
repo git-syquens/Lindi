@@ -1,5 +1,29 @@
 # MPU6050 Gyroscope & Accelerometer
 
+## ⚠️ CRITICAL: Clone Sensor Detection
+
+> **IMPORTANT**: This project uses an MPU6050 **CLONE** sensor that returns `WHO_AM_I = 0x70` instead of the standard `0x68`.
+>
+> **Your initialization code MUST accept BOTH values:**
+> ```c
+> uint8_t who_am_i;
+> mpu6050_read_bytes(MPU6050_WHO_AM_I, &who_am_i, 1);
+> 
+> // Accept both 0x68 (original) and 0x70 (clone)
+> if (who_am_i != 0x68 && who_am_i != 0x70) {
+>     ESP_LOGE(TAG, "Invalid MPU6050 WHO_AM_I: 0x%02X", who_am_i);
+>     return ESP_ERR_NOT_FOUND;
+> }
+> ```
+>
+> **Verified Configuration**:
+> - ✅ I2C Address: `0x68` (standard)
+> - ✅ WHO_AM_I Register: Returns `0x70` (clone variant)
+> - ✅ GPIO: SDA=21, SCL=22
+> - ✅ All sensor readings work perfectly (accel, gyro, temp)
+>
+> The sensor is fully functional - only the WHO_AM_I register differs from original.
+
 ## Overview
 The MPU6050 is a 6-axis Motion Processing Unit that combines a 3-axis gyroscope and a 3-axis accelerometer on the same chip. It communicates via I2C and provides motion, orientation, and position sensing capabilities.
 
@@ -83,7 +107,7 @@ esp_err_t i2c_master_init(void)
 
 | Register | Address | Description |
 |----------|---------|-------------|
-| WHO_AM_I | 0x75 | Device ID (should read 0x68) |
+| WHO_AM_I | 0x75 | Device ID (0x68 original / **0x70 clone**) ⚠️ |
 | PWR_MGMT_1 | 0x6B | Power management |
 | GYRO_CONFIG | 0x1B | Gyroscope configuration |
 | ACCEL_CONFIG | 0x1C | Accelerometer configuration |

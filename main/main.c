@@ -106,6 +106,7 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include <sys/time.h>
 
 #include "driver/gpio.h"
+#include "driver/i2c.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_freertos_hooks.h"
@@ -145,6 +146,20 @@ static bool dark_theme_enabled = false;  // Default: light theme
 
 #define NVS_NAMESPACE "lindi_cfg"
 
+// I2C Configuration
+#define I2C_MASTER_SCL_IO    22        // GPIO for I2C clock (IIC_SCL)
+#define I2C_MASTER_SDA_IO    21        // GPIO for I2C data (IIC_SDA)
+#define I2C_MASTER_NUM       I2C_NUM_0 // I2C port number
+#define I2C_MASTER_FREQ_HZ   10000     // I2C frequency (10kHz for maximum compatibility)
+
+// MPU6050 Configuration
+#define MPU6050_ADDR         0x68      // MPU6050 I2C address (AD0=GND)
+#define MPU6050_PWR_MGMT_1   0x6B      // Power management register
+#define MPU6050_WHO_AM_I     0x75      // Device ID register
+#define MPU6050_ACCEL_XOUT_H 0x3B      // Accelerometer X-axis high byte
+#define MPU6050_GYRO_XOUT_H  0x43      // Gyroscope X-axis high byte
+#define MPU6050_TEMP_OUT_H   0x41      // Temperature high byte
+
 // Clock component handle
 static clock_handle_t main_clock = NULL;
 
@@ -167,6 +182,9 @@ static void clock_update_task(lv_task_t *task);
 static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
 static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static esp_err_t i2c_master_init(void);
+static esp_err_t mpu6050_init(void);
+static void mpu6050_read_task(void *pvParameters);
 
 // WiFi event handler
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -286,6 +304,158 @@ void save_dark_theme_setting(bool enabled)
 
 // Note: Digital clock mode NVS functions removed - now handled by clock_component.c
 
+// Initialize I2C master
+static esp_err_t i2c_master_init(void)
+{
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .scl_io_num = I2C_MASTER_SCL_IO,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+    };
+    
+    esp_err_t err = i2c_param_config(I2C_MASTER_NUM, &conf);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "I2C param config failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    
+    err = i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    
+    ESP_LOGI(TAG, "I2C master initialized on SDA=%d, SCL=%d", I2C_MASTER_SDA_IO, I2C_MASTER_SCL_IO);
+    return ESP_OK;
+}
+
+// Scan I2C bus for devices
+static void i2c_scan(void)
+{
+    ESP_LOGI(TAG, "Scanning I2C bus...");
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
+        i2c_master_stop(cmd);
+        esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 50 / portTICK_PERIOD_MS);
+        i2c_cmd_link_delete(cmd);
+        
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "Found device at address 0x%02X", addr);
+        }
+    }
+    ESP_LOGI(TAG, "I2C scan complete");
+}
+
+// Initialize MPU6050
+static esp_err_t mpu6050_init(void)
+{
+    esp_err_t err;
+    uint8_t who_am_i;
+    
+    // Scan bus first to find devices
+    i2c_scan();
+    
+    // Try address 0x68 first
+    err = i2c_master_write_read_device(I2C_MASTER_NUM, MPU6050_ADDR,
+                                       (uint8_t[]){MPU6050_WHO_AM_I}, 1,
+                                       &who_am_i, 1,
+                                       1000 / portTICK_PERIOD_MS);
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "MPU6050 not found at 0x68, trying 0x69...");
+        // Try alternate address (AD0=VCC)
+        err = i2c_master_write_read_device(I2C_MASTER_NUM, 0x69,
+                                           (uint8_t[]){MPU6050_WHO_AM_I}, 1,
+                                           &who_am_i, 1,
+                                           1000 / portTICK_PERIOD_MS);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "MPU6050 found at alternate address 0x69!");
+            // Update the address for future use
+            ESP_LOGW(TAG, "Please update MPU6050_ADDR to 0x69 in code");
+        } else {
+            ESP_LOGE(TAG, "MPU6050 not found at either 0x68 or 0x69: %s", esp_err_to_name(err));
+            return err;
+        }
+    }
+    
+    // Accept both original (0x68) and clone (0x70) WHO_AM_I values
+    if (who_am_i != 0x68 && who_am_i != 0x70) {
+        ESP_LOGE(TAG, "MPU6050 WHO_AM_I mismatch: 0x%02X (expected 0x68 or 0x70)", who_am_i);
+        return ESP_ERR_NOT_FOUND;
+    }
+    
+    ESP_LOGI(TAG, "MPU6050 detected! WHO_AM_I=0x%02X", who_am_i);
+    
+    // Wake up MPU6050 (exit sleep mode)
+    uint8_t pwr_mgmt = 0x00;
+    err = i2c_master_write_to_device(I2C_MASTER_NUM, MPU6050_ADDR,
+                                     (uint8_t[]){MPU6050_PWR_MGMT_1, pwr_mgmt}, 2,
+                                     1000 / portTICK_PERIOD_MS);
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to wake up MPU6050: %s", esp_err_to_name(err));
+        return err;
+    }
+    
+    ESP_LOGI(TAG, "MPU6050 initialized successfully");
+    vTaskDelay(100 / portTICK_PERIOD_MS);  // Give sensor time to stabilize
+    
+    return ESP_OK;
+}
+
+// MPU6050 reading task - outputs data every second
+static void mpu6050_read_task(void *pvParameters)
+{
+    (void)pvParameters;
+    uint8_t data[14];  // 6 accel + 2 temp + 6 gyro = 14 bytes
+    
+    while (1) {
+        // Read all sensor data starting from ACCEL_XOUT_H (0x3B)
+        // This reads: ACCEL_X, ACCEL_Y, ACCEL_Z, TEMP, GYRO_X, GYRO_Y, GYRO_Z
+        esp_err_t err = i2c_master_write_read_device(I2C_MASTER_NUM, MPU6050_ADDR,
+                                                     (uint8_t[]){MPU6050_ACCEL_XOUT_H}, 1,
+                                                     data, 14,
+                                                     1000 / portTICK_PERIOD_MS);
+        
+        if (err == ESP_OK) {
+            // Parse accelerometer data (±2g range, sensitivity = 16384 LSB/g)
+            int16_t accel_x = (int16_t)((data[0] << 8) | data[1]);
+            int16_t accel_y = (int16_t)((data[2] << 8) | data[3]);
+            int16_t accel_z = (int16_t)((data[4] << 8) | data[5]);
+            
+            float ax = accel_x / 16384.0f;
+            float ay = accel_y / 16384.0f;
+            float az = accel_z / 16384.0f;
+            
+            // Parse temperature data (formula: temp = raw/340 + 36.53)
+            int16_t temp_raw = (int16_t)((data[6] << 8) | data[7]);
+            float temperature = (temp_raw / 340.0f) + 36.53f;
+            
+            // Parse gyroscope data (±250°/sec range, sensitivity = 131 LSB/°/sec)
+            int16_t gyro_x = (int16_t)((data[8] << 8) | data[9]);
+            int16_t gyro_y = (int16_t)((data[10] << 8) | data[11]);
+            int16_t gyro_z = (int16_t)((data[12] << 8) | data[13]);
+            
+            float gx = gyro_x / 131.0f;
+            float gy = gyro_y / 131.0f;
+            float gz = gyro_z / 131.0f;
+            
+            // Output to serial
+            ESP_LOGI(TAG, "MPU6050 | Accel: X=%.2fg Y=%.2fg Z=%.2fg | Gyro: X=%.1f°/s Y=%.1f°/s Z=%.1f°/s | Temp: %.1f°C",
+                     ax, ay, az, gx, gy, gz, temperature);
+        } else {
+            ESP_LOGE(TAG, "Failed to read MPU6050: %s", esp_err_to_name(err));
+        }
+        
+        vTaskDelay(1000 / portTICK_PERIOD_MS);  // Update every 1 second
+    }
+}
+
 // Initialize WiFi in station mode
 void wifi_init_sta(void)
 {
@@ -382,6 +552,21 @@ void app_main() {
 	
 	// Initialize event loop
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	
+	// Initialize I2C
+	ESP_LOGI(TAG, "Initializing I2C...");
+	ESP_ERROR_CHECK(i2c_master_init());
+	
+	// Initialize MPU6050
+	ESP_LOGI(TAG, "Initializing MPU6050...");
+	if (mpu6050_init() == ESP_OK) {
+		// MPU6050 initialized - task creation disabled to reduce serial output
+		// Uncomment below to enable continuous sensor reading task:
+		// xTaskCreate(mpu6050_read_task, "mpu6050_read", 4096, NULL, 5, NULL);
+		// ESP_LOGI(TAG, "MPU6050 task started");
+	} else {
+		ESP_LOGW(TAG, "MPU6050 initialization failed, continuing without sensor");
+	}
 	
 	// Initialize WiFi with power save mode
 	ESP_LOGI(TAG, "Starting WiFi...");

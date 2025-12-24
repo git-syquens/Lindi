@@ -1,0 +1,252 @@
+Command: E:\Dev\Espressif\python_env\idf5.5_py3.10_env\Scripts\python.exe E:\Dev\Espressif\frameworks\esp-idf-v5.5\tools/idf_monitor.py -p COM7 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 E:\Dev\Lindi\build\lindi.elf E:\Dev\Lindi\build\lvgl-demo.elf E:\Dev\Lindi\build\bootloader\bootloader.elf --force-color -m 'E:\Dev\Espressif\python_env\idf5.5_py3.10_env\Scripts\python.exe' 'E:\Dev\Espressif\frameworks\esp-idf-v5.5\tools\idf.py' '-p' 'COM7'
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5-dirty 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Dec 22 2025 12:22:19[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (31) boot: chip revision: v3.1[0m
+[0;32mI (34) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (41) boot.esp32: SPI Flash Size : 4MB[0m
+[0;32mI (45) boot: Enabling RNG early entropy source...[0m
+[0;32mI (49) boot: Partition Table:[0m
+[0;32mI (52) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (58) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (65) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (71) boot:  2 factory          factory app      00 00 00010000 00200000[0m
+[0;32mI (78) boot: End of partition table[0m
+[0;32mI (81) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=3c430h (246832) map[0m
+[0;32mI (173) esp_image: segment 1: paddr=0004c458 vaddr=3ff80000 size=00020h (    32) load[0m
+[0;32mI (173) esp_image: segment 2: paddr=0004c480 vaddr=3ffb0000 size=03b98h ( 15256) load[0m
+[0;32mI (182) esp_image: segment 3: paddr=00050020 vaddr=400d0020 size=b6f18h (749336) map[0m
+[0;32mI (440) esp_image: segment 4: paddr=00106f40 vaddr=3ffb3b98 size=006d8h (  1752) load[0m
+[0;32mI (441) esp_image: segment 5: paddr=00107620 vaddr=40080000 size=1c7f8h (116728) load[0m
+[0;32mI (503) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (503) boot: Disabling RNG early entropy source...[0m
+[0;32mI (514) cpu_start: Multicore app[0m
+[0;32mI (522) cpu_start: Pro cpu start user code[0m
+[0;32mI (522) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (523) app_init: Application information:[0m
+[0;32mI (525) app_init: Project name:     lindi[0m
+[0;32mI (530) app_init: App version:      2353a71-dirty[0m
+[0;32mI (535) app_init: ELF file SHA256:  44307dcc66bcc01a...[0m
+[0;32mI (541) app_init: ESP-IDF:          v5.5-dirty[0m
+[0;32mI (546) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (551) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (556) efuse_init: Chip rev:         v3.1[0m
+[0;32mI (561) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (568) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (574) heap_init: At 3FFD4F88 len 0000B078 (44 KiB): DRAM[0m
+[0;32mI (580) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (587) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (593) heap_init: At 4009C7F8 len 00003808 (14 KiB): IRAM[0m
+[0;32mI (601) spi_flash: detected chip: generic[0m
+[0;32mI (604) spi_flash: flash io: dio[0m
+[0;33mW (608) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`[0m
+[0;32mI (620) main_task: Started on CPU0[0m
+[0;32mI (630) main_task: Calling app_main()[0m
+
+APP  LittlevGL Demo is start!~
+[0;32mI (650)  LittlevGL Demo: Loaded winter time setting: enabled[0m
+[0;32mI (650)  LittlevGL Demo: Loaded dark theme setting: enabled[0m
+[0;32mI (650)  LittlevGL Demo: Initializing I2C...[0m
+[0;32mI (660)  LittlevGL Demo: I2C master initialized on SDA=21, SCL=22[0m
+[0;32mI (660)  LittlevGL Demo: Initializing MPU6050...[0m
+[0;32mI (670)  LittlevGL Demo: Scanning I2C bus...[0m
+[0;32mI (780)  LittlevGL Demo: Found device at address 0x68[0m
+[0;32mI (810)  LittlevGL Demo: I2C scan complete[0m
+[0;32mI (810)  LittlevGL Demo: MPU6050 detected! WHO_AM_I=0x70[0m
+[0;32mI (810)  LittlevGL Demo: MPU6050 initialized successfully[0m
+[0;32mI (910)  LittlevGL Demo: MPU6050 task started[0m
+[0;32mI (910)  LittlevGL Demo: Starting WiFi...[0m
+[0;32mI (920) wifi:wifi driver task: 3ffde228, prio:23, stack:6656, core=0[0m
+[0;32mI (920)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=0.1°/s Y=2.2°/s Z=0.3°/s | Temp: 41.2°C[0m
+[0;32mI (930) wifi:wifi firmware version: f3dbad7[0m
+[0;32mI (930) wifi:wifi certification version: v7.0[0m
+[0;32mI (930) wifi:config NVS flash: enabled[0m
+[0;32mI (940) wifi:config nano formatting: disabled[0m
+[0;32mI (940) wifi:Init data frame dynamic rx buffer num: 32[0m
+[0;32mI (950) wifi:Init static rx mgmt buffer num: 5[0m
+[0;32mI (950) wifi:Init management short buffer num: 32[0m
+[0;32mI (960) wifi:Init dynamic tx buffer num: 32[0m
+[0;32mI (960) wifi:Init static rx buffer size: 1600[0m
+[0;32mI (960) wifi:Init static rx buffer num: 10[0m
+[0;32mI (970) wifi:Init dynamic rx buffer num: 32[0m
+[0;32mI (970) wifi_init: rx ba win: 6[0m
+[0;32mI (970) wifi_init: accept mbox: 6[0m
+[0;32mI (980) wifi_init: tcpip mbox: 32[0m
+[0;32mI (980) wifi_init: udp mbox: 6[0m
+[0;32mI (990) wifi_init: tcp mbox: 6[0m
+[0;32mI (990) wifi_init: tcp tx win: 5744[0m
+[0;32mI (990) wifi_init: tcp rx win: 5744[0m
+[0;32mI (1000) wifi_init: tcp mss: 1440[0m
+[0;32mI (1000) wifi_init: WiFi IRAM OP enabled[0m
+[0;32mI (1010) wifi_init: WiFi RX IRAM OP enabled[0m
+[0;32mI (1010) phy_init: phy_version 4860,6b7a6e5,Feb  6 2025,14:47:07[0m
+[0;32mI (1100) wifi:mode : sta (d4:8a:fc:d0:9b:70)[0m
+[0;32mI (1100) wifi:enable tsf[0m
+[0;32mI (1110)  LittlevGL Demo: WiFi init finished, waiting for connection...[0m
+[0;32mI (1110)  LittlevGL Demo: WiFi started, connecting...[0m
+[0;32mI (1120) wifi:new:<8,0>, old:<1,0>, ap:<255,255>, sta:<8,0>, prof:1, snd_ch_cfg:0x0[0m
+[0;32mI (1120) wifi:state: init -> auth (0xb0)[0m
+[0;32mI (1130) wifi:state: auth -> assoc (0x0)[0m
+[0;32mI (1150) wifi:state: assoc -> run (0x10)[0m
+[0;32mI (1180) wifi:connected with interxs-ws300n, aid = 1, channel 8, BW20, bssid = 92:3b:ad:13:d8:9d[0m
+[0;32mI (1180) wifi:security: WPA2-PSK, phy: bgn, rssi: -66[0m
+[0;32mI (1190) wifi:pm start, type: 1[0m
+
+[0;32mI (1350) wifi:AP's beacon interval = 204800 us, DTIM period = 4[0m
+[0;32mI (1370) wifi:<ba-add>idx:0 (ifx:0, 92:3b:ad:13:d8:9d), tid:0, ssn:1, winSize:64[0m
+[0;32mI (1940)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.16g Z=-0.21g | Gyro: X=-0.2°/s Y=1.6°/s Z=0.0°/s | Temp: 41.1°C[0m
+[0;32mI (2950)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=-0.1°/s Y=2.0°/s Z=0.3°/s | Temp: 41.2°C[0m
+[0;32mI (3200) esp_netif_handlers: sta ip: 192.168.1.149, mask: 255.255.255.0, gw: 192.168.1.1[0m
+[0;32mI (3200)  LittlevGL Demo: Got IP: 192.168.1.149[0m
+[0;32mI (3200)  LittlevGL Demo: Connected to WiFi SSID:interxs-ws300n[0m
+[0;32mI (3210)  LittlevGL Demo: Initializing SNTP[0m
+[0;32mI (3210)  LittlevGL Demo: Waiting for system time to be set... (1/10)[0m
+[0;32mI (3320) wifi:<ba-add>idx:1 (ifx:0, 92:3b:ad:13:d8:9d), tid:6, ssn:2, winSize:64[0m
+[0;32mI (3350)  LittlevGL Demo: Time synchronized via NTP[0m
+[0;32mI (3960)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.1°/s Y=1.9°/s Z=0.4°/s | Temp: 41.2°C[0m
+[0;32mI (4970)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.1°/s Y=1.7°/s Z=0.1°/s | Temp: 41.2°C[0m
+[0;32mI (5980)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.0°/s Y=2.1°/s Z=0.1°/s | Temp: 41.1°C[0m
+[0;32mI (6220) main_task: Returned from app_main()[0m
+lvgl_helpers->Display hor size: 320, ver size: 240
+lvgl_helpers->Display buffer size: 20480
+lvgl_helpers->Initializing SPI master for display
+lvgl_helpers->Configuring SPI host HSPI_HOST (1)
+lvgl_helpers->MISO pin: -1, MOSI pin: 13, SCLK pin: 14
+lvgl_helpers->Max transfer size: 40960 (bytes)
+lvgl_helpers->Initializing SPI bus...
+disp_spi->Adding SPI device
+disp_spi->Clock speed: 40000000Hz, mode: 0, CS pin: 15
+ILI9341->ili9341 Initialization....
+[0;32mI (6680) ILI9341: Enabling backlight.[0m
+ILI9341->Display orientation: LANDSCAPE_INVERTED
+ILI9341->0x36 command value: 0xE8
+lvgl_helpers->Initializing SPI master for touch
+[0;32mI (6680) XPT2046: XPT2046 Initialization[0m
+[0;32mI (6730) clock_component: Loaded digital clock mode: enabled[0m
+[0;32mI (6740) clock_component: Clock created in digital mode[0m
+[0;32mI (6990)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=0.1°/s Y=2.1°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (8000)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.3°/s Y=1.6°/s Z=0.1°/s | Temp: 41.0°C[0m
+[0;32mI (9010)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=0.1°/s Y=2.0°/s Z=0.4°/s | Temp: 41.1°C[0m
+[0;32mI (10020)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=-0.0°/s Y=2.0°/s Z=0.4°/s | Temp: 41.1°C[0m
+[0;32mI (11030)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.3°/s Y=1.8°/s Z=0.1°/s | Temp: 40.9°C[0m
+[0;32mI (12040)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=0.2°/s Y=2.3°/s Z=0.2°/s | Temp: 41.1°C[0m
+[0;32mI (13050)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.16g Z=-0.21g | Gyro: X=-0.0°/s Y=1.9°/s Z=0.1°/s | Temp: 41.1°C[0m
+[0;32mI (14060)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=-0.3°/s Y=2.1°/s Z=0.2°/s | Temp: 41.4°C[0m
+[0;32mI (15070)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=0.0°/s Y=2.2°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (16080)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.23g | Gyro: X=-0.2°/s Y=1.9°/s Z=0.1°/s | Temp: 41.2°C[0m
+[0;32mI (17090)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=-0.6°/s Y=1.9°/s Z=0.4°/s | Temp: 41.2°C[0m
+[0;32mI (18100)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.2°/s Y=2.2°/s Z=0.4°/s | Temp: 41.2°C[0m
+[0;32mI (19110)  LittlevGL Demo: MPU6050 | Accel: X=-0.92g Y=-0.16g Z=-0.22g | Gyro: X=-1.6°/s Y=1.6°/s Z=0.3°/s | Temp: 41.4°C[0m
+[0;32mI (20120)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-0.1°/s Y=1.8°/s Z=0.2°/s | Temp: 41.0°C[0m
+[0;32mI (21130)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.2°/s Y=2.1°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (22140)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.2°/s Y=1.7°/s Z=0.3°/s | Temp: 41.3°C[0m
+[0;32mI (23150)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.0°/s Y=1.9°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (24160)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=0.0°/s Y=2.1°/s Z=0.1°/s | Temp: 41.4°C[0m
+[0;32mI (25170)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.4°/s Y=1.9°/s Z=0.3°/s | Temp: 41.1°C[0m
+[0;32mI (26180)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.1°/s Y=2.0°/s Z=0.4°/s | Temp: 41.1°C[0m
+[0;32mI (27190)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.1°/s Y=2.1°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (28200)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.1°/s Y=2.0°/s Z=0.2°/s | Temp: 41.0°C[0m
+[0;32mI (29210)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.21g | Gyro: X=0.1°/s Y=2.0°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (30220)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-0.1°/s Y=2.2°/s Z=0.4°/s | Temp: 41.2°C[0m
+[0;32mI (31230)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.0°/s Y=1.9°/s Z=0.0°/s | Temp: 41.2°C[0m
+[0;32mI (32240)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.0°/s Y=1.9°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (33250)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.3°/s Y=2.1°/s Z=0.3°/s | Temp: 41.1°C[0m
+[0;32mI (34260)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.3°/s Y=1.8°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (35270)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.1°/s Y=2.1°/s Z=0.3°/s | Temp: 41.2°C[0m
+[0;32mI (36280)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=0.0°/s Y=2.0°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (37290)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.4°/s Y=1.7°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (38300)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.0°/s Y=2.1°/s Z=0.3°/s | Temp: 41.1°C[0m
+[0;32mI (39310)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.1°/s Y=2.1°/s Z=0.2°/s | Temp: 41.4°C[0m
+[0;32mI (40320)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.1°/s Y=1.8°/s Z=0.0°/s | Temp: 41.3°C[0m
+[0;32mI (41330)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.0°/s Y=2.1°/s Z=0.2°/s | Temp: 41.0°C[0m
+[0;32mI (42340)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=0.1°/s Y=1.9°/s Z=0.2°/s | Temp: 41.4°C[0m
+[0;32mI (43350)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.4°/s Y=2.0°/s Z=0.3°/s | Temp: 41.3°C[0m
+[0;32mI (44360)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.4°/s Y=2.2°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (45370)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.16g Z=-0.22g | Gyro: X=-0.3°/s Y=2.0°/s Z=0.1°/s | Temp: 41.2°C[0m
+[0;32mI (46380)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.2°/s Y=1.9°/s Z=0.3°/s | Temp: 41.0°C[0m
+[0;32mI (47390)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.0°/s Y=2.0°/s Z=0.2°/s | Temp: 41.1°C[0m
+[0;32mI (48400)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-0.3°/s Y=1.9°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (49410)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.1°/s Y=2.0°/s Z=-0.0°/s | Temp: 41.4°C[0m
+[0;32mI (50420)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=0.3°/s Y=2.1°/s Z=-0.1°/s | Temp: 41.4°C[0m
+[0;32mI (51430)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.1°/s Y=1.8°/s Z=0.1°/s | Temp: 41.1°C[0m
+[0;32mI (52440)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.0°/s Y=2.1°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (53450)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=0.2°/s Y=2.0°/s Z=0.0°/s | Temp: 41.4°C[0m
+[0;32mI (54460)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.3°/s Y=1.7°/s Z=-0.2°/s | Temp: 41.2°C[0m
+[0;32mI (55470)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.3°/s Y=2.0°/s Z=0.4°/s | Temp: 41.1°C[0m
+[0;32mI (56480)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.1°/s Y=1.6°/s Z=-0.2°/s | Temp: 41.0°C[0m
+[0;32mI (57490)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-1.3°/s Y=1.7°/s Z=0.4°/s | Temp: 41.5°C[0m
+[0;32mI (58500)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.23g | Gyro: X=-0.1°/s Y=2.2°/s Z=1.0°/s | Temp: 41.2°C[0m
+[0;32mI (59510)  LittlevGL Demo: MPU6050 | Accel: X=-0.89g Y=-0.15g Z=-0.21g | Gyro: X=1.7°/s Y=2.4°/s Z=0.0°/s | Temp: 41.0°C[0m
+[0;32mI (60520)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.4°/s Y=1.8°/s Z=0.4°/s | Temp: 41.1°C[0m
+[0;32mI (61530)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.0°/s Y=2.1°/s Z=0.2°/s | Temp: 41.1°C[0m
+[0;32mI (62540)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.0°/s Y=2.0°/s Z=0.1°/s | Temp: 41.1°C[0m
+[0;32mI (63550)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.4°/s Y=2.0°/s Z=0.0°/s | Temp: 41.3°C[0m
+[0;32mI (64560)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.1°/s Y=2.1°/s Z=0.3°/s | Temp: 41.0°C[0m
+[0;32mI (65570)  LittlevGL Demo: MPU6050 | Accel: X=-0.92g Y=-0.15g Z=-0.21g | Gyro: X=1.5°/s Y=2.4°/s Z=0.5°/s | Temp: 41.0°C[0m
+[0;32mI (66580)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.1°/s Y=2.0°/s Z=-0.1°/s | Temp: 41.2°C[0m
+[0;32mI (67590)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.1°/s Y=1.8°/s Z=0.3°/s | Temp: 41.4°C[0m
+[0;32mI (68600)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.2°/s Y=2.0°/s Z=0.2°/s | Temp: 41.0°C[0m
+[0;32mI (69610)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.5°/s Y=1.9°/s Z=0.1°/s | Temp: 41.2°C[0m
+[0;32mI (70620)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.2°/s Y=2.1°/s Z=0.0°/s | Temp: 41.2°C[0m
+[0;32mI (71630)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=0.1°/s Y=1.6°/s Z=-0.0°/s | Temp: 41.4°C[0m
+[0;32mI (72640)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.2°/s Y=1.9°/s Z=0.2°/s | Temp: 41.1°C[0m
+[0;32mI (73650)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=0.1°/s Y=2.1°/s Z=0.1°/s | Temp: 41.2°C[0m
+[0;32mI (74660)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.1°/s Y=1.8°/s Z=0.2°/s | Temp: 41.1°C[0m
+[0;32mI (75670)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.1°/s Y=1.9°/s Z=0.2°/s | Temp: 41.1°C[0m
+[0;32mI (76680)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.1°/s Y=2.1°/s Z=0.3°/s | Temp: 41.3°C[0m
+[0;32mI (77690)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.7°/s Y=1.9°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (78700)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.4°/s Y=1.8°/s Z=-0.1°/s | Temp: 41.1°C[0m
+[0;32mI (79710)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.2°/s Y=2.0°/s Z=0.0°/s | Temp: 41.2°C[0m
+[0;32mI (80720)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.6°/s Y=1.9°/s Z=0.4°/s | Temp: 41.2°C[0m
+[0;32mI (81730)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.1°/s Y=2.1°/s Z=0.3°/s | Temp: 41.2°C[0m
+[0;32mI (82740)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.3°/s Y=1.8°/s Z=-0.0°/s | Temp: 41.3°C[0m
+[0;32mI (83750)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.8°/s Y=1.3°/s Z=0.5°/s | Temp: 41.2°C[0m
+[0;32mI (84760)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.8°/s Y=2.5°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (85770)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.2°/s Y=1.8°/s Z=0.3°/s | Temp: 41.3°C[0m
+[0;32mI (86780)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-0.0°/s Y=1.8°/s Z=-0.4°/s | Temp: 41.1°C[0m
+[0;32mI (87790)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.1°/s Y=2.0°/s Z=0.3°/s | Temp: 41.2°C[0m
+[0;32mI (88800)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.2°/s Y=2.0°/s Z=0.2°/s | Temp: 41.2°C[0m
+[0;32mI (89810)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-0.9°/s Y=1.1°/s Z=0.1°/s | Temp: 41.0°C[0m
+[0;32mI (90820)  LittlevGL Demo: MPU6050 | Accel: X=-0.89g Y=-0.15g Z=-0.22g | Gyro: X=1.1°/s Y=1.9°/s Z=0.3°/s | Temp: 41.0°C[0m
+[0;32mI (91830)  LittlevGL Demo: MPU6050 | Accel: X=-0.92g Y=-0.15g Z=-0.21g | Gyro: X=-3.9°/s Y=1.1°/s Z=1.3°/s | Temp: 41.2°C[0m
+[0;32mI (92840)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=0.5°/s Y=2.4°/s Z=0.3°/s | Temp: 41.2°C[0m
+[0;32mI (93850)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.2°/s Y=2.2°/s Z=0.6°/s | Temp: 41.4°C[0m
+[0;32mI (94860)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-1.9°/s Y=1.5°/s Z=0.8°/s | Temp: 41.0°C[0m
+[0;32mI (95870)  LittlevGL Demo: MPU6050 | Accel: X=-0.92g Y=-0.14g Z=-0.21g | Gyro: X=0.7°/s Y=2.5°/s Z=-0.1°/s | Temp: 41.4°C[0m
+[0;32mI (96880)  LittlevGL Demo: MPU6050 | Accel: X=-0.89g Y=-0.15g Z=-0.22g | Gyro: X=1.4°/s Y=2.4°/s Z=-0.3°/s | Temp: 41.3°C[0m
+[0;32mI (97890)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=1.4°/s Y=2.6°/s Z=-0.5°/s | Temp: 41.4°C[0m
+[0;32mI (98900)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.14g Z=-0.22g | Gyro: X=-0.3°/s Y=1.8°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (99910)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.4°/s Y=2.0°/s Z=0.4°/s | Temp: 41.2°C[0m
+[0;32mI (100920)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.2°/s Y=1.7°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (101930)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=0.1°/s Y=2.3°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (102940)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.14g Z=-0.22g | Gyro: X=0.3°/s Y=2.3°/s Z=0.1°/s | Temp: 41.4°C[0m
+[0;32mI (103950)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=-0.4°/s Y=2.0°/s Z=0.0°/s | Temp: 41.2°C[0m
+[0;32mI (104960)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.4°/s Y=2.5°/s Z=0.3°/s | Temp: 41.3°C[0m
+[0;32mI (105970)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=0.6°/s Y=2.0°/s Z=-0.1°/s | Temp: 41.2°C[0m
+[0;32mI (106980)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.4°/s Y=1.8°/s Z=0.2°/s | Temp: 41.4°C[0m
+[0;32mI (107990)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.14g Z=-0.22g | Gyro: X=-0.3°/s Y=1.9°/s Z=0.4°/s | Temp: 41.1°C[0m
+[0;32mI (109000)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=0.3°/s Y=1.9°/s Z=-0.1°/s | Temp: 41.2°C[0m
+[0;32mI (110010)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.14g Z=-0.22g | Gyro: X=-0.3°/s Y=1.5°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (111020)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.22g | Gyro: X=0.1°/s Y=2.1°/s Z=0.2°/s | Temp: 41.0°C[0m
+[0;32mI (112030)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.2°/s Y=2.0°/s Z=0.1°/s | Temp: 41.0°C[0m
+[0;32mI (113040)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.15g Z=-0.21g | Gyro: X=-0.3°/s Y=1.6°/s Z=0.3°/s | Temp: 41.2°C[0m
+[0;32mI (114050)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=0.3°/s Y=2.0°/s Z=0.1°/s | Temp: 41.2°C[0m
+[0;32mI (115060)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.2°/s Y=1.8°/s Z=0.2°/s | Temp: 41.4°C[0m
+[0;32mI (116070)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=-0.5°/s Y=1.9°/s Z=0.4°/s | Temp: 41.4°C[0m
+[0;32mI (117080)  LittlevGL Demo: MPU6050 | Accel: X=-0.91g Y=-0.14g Z=-0.21g | Gyro: X=0.0°/s Y=2.0°/s Z=0.5°/s | Temp: 41.0°C[0m
+[0;32mI (118090)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.21g | Gyro: X=-0.4°/s Y=2.2°/s Z=0.2°/s | Temp: 41.1°C[0m
+[0;32mI (119100)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.15g Z=-0.22g | Gyro: X=0.0°/s Y=1.8°/s Z=0.2°/s | Temp: 41.3°C[0m
+[0;32mI (120110)  LittlevGL Demo: MPU6050 | Accel: X=-0.90g Y=-0.14g Z=-0.21g | Gyro: X=-0.0°/s Y=2.3°/s Z=0.2°/s | Temp: 41.4°C[0m
+[0;32mI (121120)  L

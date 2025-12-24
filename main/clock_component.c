@@ -25,6 +25,9 @@ struct clock_handle_s {
     int y_offset;                ///< Y position offset
 };
 
+// Global handle for callback access (LVGL 7 has limited user_data support)
+static clock_handle_t g_clock_handle = NULL;
+
 // Forward declarations
 static void load_digital_clock_mode(clock_handle_t handle);
 static void save_digital_clock_mode(bool enabled);
@@ -75,10 +78,9 @@ static void save_digital_clock_mode(bool enabled)
 static void toggle_button_cb(lv_obj_t *obj, lv_event_t event)
 {
     if (event == LV_EVENT_CLICKED) {
-        // Get handle from user_data
-        clock_handle_t handle = (clock_handle_t)lv_obj_get_user_data(obj);
-        if (handle) {
-            clock_toggle_mode(handle);
+        // Use global handle (LVGL 7 compatibility)
+        if (g_clock_handle) {
+            clock_toggle_mode(g_clock_handle);
         }
     }
 }
@@ -106,6 +108,9 @@ clock_handle_t clock_create(const clock_config_t *config)
     handle->x_offset = config->x_offset;
     handle->y_offset = config->y_offset;
 
+    // Store global handle for callback (LVGL 7 compatibility)
+    g_clock_handle = handle;
+
     // Load saved mode from NVS (may override config default)
     load_digital_clock_mode(handle);
 
@@ -114,7 +119,6 @@ clock_handle_t clock_create(const clock_config_t *config)
         handle->toggle_button = lv_btn_create(config->parent, NULL);
         lv_obj_set_size(handle->toggle_button, 40, 30);
         lv_obj_align(handle->toggle_button, NULL, LV_ALIGN_IN_TOP_LEFT, 5, 5);
-        lv_obj_set_user_data(handle->toggle_button, handle);
         lv_obj_set_event_cb(handle->toggle_button, toggle_button_cb);
 
         // Add label to the right of button

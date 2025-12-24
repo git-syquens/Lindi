@@ -25,6 +25,20 @@ Before writing any code, ALWAYS read the relevant documentation files:
 - `/documentation/libraries.md` - ESP-IDF components and dependencies
 - `/documentation/storage.md` - SD card, NVS, SPIFFS
 - `/documentation/lvgl-elements.md` - **PRIMARY REFERENCE** for all UI code
+- `/documentation/gyro_mpu6050.md` - MPU6050 gyroscope/accelerometer sensor integration
+
+### Hardware Datasheets (PDFs)
+Reference these PDF datasheets for detailed hardware specifications:
+- `/documentation/2.8┤þ-ESP32-WROOM-32 Specifications-EN.pdf` - ESP32-WROOM-32 development board specifications
+  - Pin layout and GPIO capabilities
+  - Power requirements and specifications
+  - Mechanical dimensions
+- `/documentation/ESP32_CREEN.pdf` - Display module specifications
+  - ILI9341 controller details
+  - Touch controller integration
+  - Pin connections and SPI configuration
+
+**When troubleshooting GPIO, I2C, SPI, or power issues**: Always cross-reference these PDFs to verify pin capabilities, voltage levels, and hardware limitations.
 
 ## Critical Rules
 
