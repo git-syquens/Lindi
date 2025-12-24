@@ -676,8 +676,10 @@ void guiTask(void *pvParameter) {
 	lv_obj_t *tab_level = lv_tabview_add_tab(tv, "Level");
 	lv_obj_t *tab_info = lv_tabview_add_tab(tv, "Info");
 	
-	// Make Start tab non-scrollable
+	// Make Start and Level tabs non-scrollable
 	lv_page_set_scrl_layout(tab_start, LV_LAYOUT_OFF);
+	lv_page_set_scrl_layout(tab_level, LV_LAYOUT_OFF);
+	lv_page_set_scrlbar_mode(tab_level, LV_SCRLBAR_MODE_OFF);  // Hide scrollbar
 	
 	// Create clock component (handles both analog and digital clocks)
 	clock_config_t clock_cfg = {
@@ -696,9 +698,29 @@ void guiTask(void *pvParameter) {
 	lv_task_create(clock_update_task, 1000, LV_TASK_PRIO_LOW, NULL);
 	
 	// Add content to Level tab
-	lv_obj_t *label_level = lv_label_create(tab_level, NULL);
-	lv_label_set_text(label_level, "Level settings");
-	lv_obj_align(label_level, NULL, LV_ALIGN_IN_TOP_MID, 0, 20);
+	// Create Pitch bar (vertical, centered top)
+	lv_obj_t *pitch_bar = lv_bar_create(tab_level, NULL);
+	lv_obj_set_size(pitch_bar, 15, 90);  // Thinner: 15px wide, 90px high
+	lv_obj_align(pitch_bar, NULL, LV_ALIGN_CENTER, 0, -25);  // Centered, shifted up
+	lv_bar_set_range(pitch_bar, -90, 90);
+	lv_bar_set_value(pitch_bar, 0, LV_ANIM_OFF);
+	
+	// Pitch label
+	lv_obj_t *pitch_label = lv_label_create(tab_level, NULL);
+	lv_label_set_text(pitch_label, "Pitch: 0°");
+	lv_obj_align(pitch_label, pitch_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
+	
+	// Create Roll bar (horizontal, centered below pitch)
+	lv_obj_t *roll_bar = lv_bar_create(tab_level, NULL);
+	lv_obj_set_size(roll_bar, 120, 15);  // Horizontal: 120px wide, 15px high
+	lv_obj_align(roll_bar, pitch_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+	lv_bar_set_range(roll_bar, -90, 90);
+	lv_bar_set_value(roll_bar, 0, LV_ANIM_OFF);
+	
+	// Roll label
+	lv_obj_t *roll_label = lv_label_create(tab_level, NULL);
+	lv_label_set_text(roll_label, "Roll: 0°");
+	lv_obj_align(roll_label, roll_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 	
 	// Add content to Info tab
 	lv_obj_t *label_info = lv_label_create(tab_info, NULL);
