@@ -702,8 +702,9 @@ void guiTask(void *pvParameter) {
 	lv_obj_t *pitch_bar = lv_bar_create(tab_level, NULL);
 	lv_obj_set_size(pitch_bar, 15, 90);  // Thinner: 15px wide, 90px high
 	lv_obj_align(pitch_bar, NULL, LV_ALIGN_CENTER, 0, -25);  // Centered, shifted up
-	lv_bar_set_range(pitch_bar, -90, 90);
-	lv_bar_set_value(pitch_bar, 0, LV_ANIM_OFF);
+	lv_bar_set_range(pitch_bar, -30, 30);  // +/- 30 degrees max
+	lv_bar_set_start_value(pitch_bar, -2, LV_ANIM_OFF);  // Thicker indicator line
+	lv_bar_set_value(pitch_bar, 2, LV_ANIM_OFF);
 	
 	// Pitch label
 	lv_obj_t *pitch_label = lv_label_create(tab_level, NULL);
@@ -714,8 +715,9 @@ void guiTask(void *pvParameter) {
 	lv_obj_t *roll_bar = lv_bar_create(tab_level, NULL);
 	lv_obj_set_size(roll_bar, 120, 15);  // Horizontal: 120px wide, 15px high
 	lv_obj_align(roll_bar, pitch_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
-	lv_bar_set_range(roll_bar, -90, 90);
-	lv_bar_set_value(roll_bar, 0, LV_ANIM_OFF);
+	lv_bar_set_range(roll_bar, -30, 30);  // +/- 30 degrees max
+	lv_bar_set_start_value(roll_bar, -2, LV_ANIM_OFF);  // Thicker indicator line
+	lv_bar_set_value(roll_bar, 2, LV_ANIM_OFF);
 	
 	// Roll label
 	lv_obj_t *roll_label = lv_label_create(tab_level, NULL);
