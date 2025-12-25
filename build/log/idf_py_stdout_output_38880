@@ -1,0 +1,133 @@
+Command: E:\Dev\Espressif\python_env\idf5.5_py3.10_env\Scripts\python.exe E:\Dev\Espressif\frameworks\esp-idf-v5.5\tools/idf_monitor.py -p COM7 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 E:\Dev\Lindi\build\lindi.elf E:\Dev\Lindi\build\lvgl-demo.elf E:\Dev\Lindi\build\bootloader\bootloader.elf --force-color -m 'E:\Dev\Espressif\python_env\idf5.5_py3.10_env\Scripts\python.exe' 'E:\Dev\Espressif\frameworks\esp-idf-v5.5\tools\idf.py' '-p' 'COM7'
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5-dirty 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Dec 22 2025 12:22:19[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (31) boot: chip revision: v3.1[0m
+[0;32mI (34) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (41) boot.esp32: SPI Flash Size : 4MB[0m
+[0;32mI (45) boot: Enabling RNG early entropy source...[0m
+[0;32mI (49) boot: Partition Table:[0m
+[0;32mI (52) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (58) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (65) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (71) boot:  2 factory          factory app      00 00 00010000 00200000[0m
+[0;32mI (78) boot: End of partition table[0m
+[0;32mI (81) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=3c460h (246880) map[0m
+[0;32mI (173) esp_image: segment 1: paddr=0004c488 vaddr=3ff80000 size=00020h (    32) load[0m
+[0;32mI (173) esp_image: segment 2: paddr=0004c4b0 vaddr=3ffb0000 size=03b68h ( 15208) load[0m
+[0;32mI (182) esp_image: segment 3: paddr=00050020 vaddr=400d0020 size=b7958h (751960) map[0m
+[0;32mI (441) esp_image: segment 4: paddr=00107980 vaddr=3ffb3b68 size=00708h (  1800) load[0m
+[0;32mI (442) esp_image: segment 5: paddr=00108090 vaddr=40080000 size=1c7f8h (116728) load[0m
+[0;32mI (504) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (504) boot: Disabling RNG early entropy source...[0m
+[0;32mI (515) cpu_start: Multicore app[0m
+[0;32mI (523) cpu_start: Pro cpu start user code[0m
+[0;32mI (523) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (523) app_init: Application information:[0m
+[0;32mI (526) app_init: Project name:     lindi[0m
+[0;32mI (531) app_init: App version:      e8e7322-dirty[0m
+[0;32mI (536) app_init: ELF file SHA256:  d8043bf259de8bb3...[0m
+[0;32mI (542) app_init: ESP-IDF:          v5.5-dirty[0m
+[0;32mI (547) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (552) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (557) efuse_init: Chip rev:         v3.1[0m
+[0;32mI (562) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (569) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (575) heap_init: At 3FFD4FA8 len 0000B058 (44 KiB): DRAM[0m
+[0;32mI (581) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (588) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (594) heap_init: At 4009C7F8 len 00003808 (14 KiB): IRAM[0m
+[0;32mI (602) spi_flash: detected chip: generic[0m
+[0;32mI (605) spi_flash: flash io: dio[0m
+[0;33mW (609) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`[0m
+[0;32mI (621) main_task: Started on CPU0[0m
+[0;32mI (631) main_task: Calling app_main()[0m
+[0;32mI (631) Lindi: Starting...[0m
+[0;32mI (651) Lindi: Loaded winter time setting: enabled[0m
+[0;32mI (651) Lindi: Loaded dark theme setting: enabled[0m
+[0;32mI (651) Lindi: Initializing I2C...[0m
+[0;32mI (661) Lindi: I2C master initialized on SDA=21, SCL=27[0m
+[0;32mI (661) Lindi: Initializing MPU6050...[0m
+[0;32mI (661) Lindi: Scanning I2C bus...[0m
+[0;32mI (851) Lindi: Found device at address 0x68[0m
+[0;32mI (891) Lindi: I2C scan complete[0m
+[0;32mI (901) Lindi: MPU6050 detected! WHO_AM_I=0x70[0m
+[0;32mI (911) Lindi: MPU6050 initialized successfully[0m
+[0;32mI (1011) Lindi: MPU6050 task started on Core 0[0m
+[0;32mI (1011) Lindi: Starting WiFi...[0m
+[0;32mI (1021) wifi:wifi driver task: 3ffde2a0, prio:23, stack:6656, core=0[0m
+[0;32mI (1031) wifi:wifi firmware version: f3dbad7[0m
+[0;32mI (1031) wifi:wifi certification version: v7.0[0m
+[0;32mI (1031) wifi:config NVS flash: enabled[0m
+[0;32mI (1031) wifi:config nano formatting: disabled[0m
+[0;32mI (1041) wifi:Init data frame dynamic rx buffer num: 32[0m
+[0;32mI (1041) wifi:Init static rx mgmt buffer num: 5[0m
+[0;32mI (1041) wifi:Init management short buffer num: 32[0m
+[0;32mI (1051) wifi:Init dynamic tx buffer num: 32[0m
+[0;32mI (1051) wifi:Init static rx buffer size: 1600[0m
+[0;32mI (1061) wifi:Init static rx buffer num: 10[0m
+[0;32mI (1061) wifi:Init dynamic rx buffer num: 32[0m
+[0;32mI (1071) wifi_init: rx ba win: 6[0m
+[0;32mI (1071) wifi_init: accept mbox: 6[0m
+[0;32mI (1071) wifi_init: tcpip mbox: 32[0m
+[0;32mI (1081) wifi_init: udp mbox: 6[0m
+[0;32mI (1081) wifi_init: tcp mbox: 6[0m
+[0;32mI (1091) wifi_init: tcp tx win: 5744[0m
+[0;32mI (1091) wifi_init: tcp rx win: 5744[0m
+[0;32mI (1091) wifi_init: tcp mss: 1440[0m
+[0;32mI (1101) wifi_init: WiFi IRAM OP enabled[0m
+[0;32mI (1101) wifi_init: WiFi RX IRAM OP enabled[0m
+[0;32mI (1111) phy_init: phy_version 4860,6b7a6e5,Feb  6 2025,14:47:07[0m
+[0;32mI (1191) phy_init: Saving new calibration data due to checksum failure or outdated calibration data, mode(0)[0m
+[0;32mI (1231) wifi:mode : sta (d4:8a:fc:d0:9b:70)[0m
+[0;32mI (1231) wifi:enable tsf[0m
+[0;32mI (1231) Lindi: WiFi init finished, waiting for connection...[0m
+[0;32mI (1231) Lindi: WiFi started, connecting...[0m
+[0;32mI (1241) wifi:new:<8,0>, old:<1,0>, ap:<255,255>, sta:<8,0>, prof:1, snd_ch_cfg:0x0[0m
+[0;32mI (1251) wifi:state: init -> auth (0xb0)[0m
+[0;32mI (1271) wifi:state: auth -> assoc (0x0)[0m
+[0;32mI (1301) wifi:state: assoc -> run (0x10)[0m
+[0;32mI (1331) wifi:connected with interxs-ws300n, aid = 8, channel 8, BW20, bssid = 92:3b:ad:b2:ba:c3[0m
+[0;32mI (1331) wifi:security: WPA2-PSK, phy: bgn, rssi: -70[0m
+[0;32mI (1331) wifi:pm start, type: 1[0m
+
+[0;32mI (1531) wifi:AP's beacon interval = 204800 us, DTIM period = 4[0m
+[0;32mI (2431) wifi:<ba-add>idx:0 (ifx:0, 92:3b:ad:b2:ba:c3), tid:0, ssn:0, winSize:64[0m
+[0;32mI (3381) esp_netif_handlers: sta ip: 192.168.1.149, mask: 255.255.255.0, gw: 192.168.1.1[0m
+[0;32mI (3381) Lindi: Got IP: 192.168.1.149[0m
+[0;32mI (3381) Lindi: Connected to WiFi SSID:interxs-ws300n[0m
+[0;32mI (3381) Lindi: Initializing SNTP[0m
+[0;32mI (3391) Lindi: Waiting for system time to be set... (1/10)[0m
+[0;32mI (5391) Lindi: Waiting for system time to be set... (2/10)[0m
+[0;32mI (5651) wifi:<ba-add>idx:1 (ifx:0, 92:3b:ad:b2:ba:c3), tid:6, ssn:2, winSize:64[0m
+[0;32mI (5681) Lindi: Time synchronized via NTP[0m
+[0;32mI (8391) main_task: Returned from app_main()[0m
+lvgl_helpers->Display hor size: 320, ver size: 240
+lvgl_helpers->Display buffer size: 20480
+lvgl_helpers->Initializing SPI master for display
+lvgl_helpers->Configuring SPI host HSPI_HOST (1)
+lvgl_helpers->MISO pin: -1, MOSI pin: 13, SCLK pin: 14
+lvgl_helpers->Max transfer size: 40960 (bytes)
+lvgl_helpers->Initializing SPI bus...
+disp_spi->Adding SPI device
+disp_spi->Clock speed: 40000000Hz, mode: 0, CS pin: 15
+ILI9341->ili9341 Initialization....
+[0;32mI (8871) ILI9341: Enabling backlight.[0m
+ILI9341->Display orientation: LANDSCAPE_INVERTED
+ILI9341->0x36 command value: 0xE8
+lvgl_helpers->Initializing SPI master for touch
+[0;32mI (8871) XPT2046: XPT2046 Initialization[0m
+[0;32mI (8941) clock_component: Loaded digital clock mode: enabled[0m
+[0;32mI (8961) clock_component: Clock created in digital mode[0m

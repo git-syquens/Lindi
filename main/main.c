@@ -93,6 +93,7 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "esp_system.h"
 #include "esp_event.h"
@@ -146,10 +147,10 @@ static bool dark_theme_enabled = false;  // Default: light theme
 #define NVS_NAMESPACE "lindi_cfg"
 
 // I2C Configuration
-#define I2C_MASTER_SCL_IO    22        // GPIO for I2C clock (IIC_SCL)
-#define I2C_MASTER_SDA_IO    21        // GPIO for I2C data (IIC_SDA)
+#define I2C_MASTER_SCL_IO    22        // GPIO for I2C clock
+#define I2C_MASTER_SDA_IO    21        // GPIO for I2C data
 #define I2C_MASTER_NUM       I2C_NUM_0 // I2C port number
-#define I2C_MASTER_FREQ_HZ   10000     // I2C frequency (10kHz for maximum compatibility)
+#define I2C_MASTER_FREQ_HZ   400000    // I2C frequency (400kHz with 4.7kΩ external pull-ups)
 
 // MPU6050 Configuration
 #define MPU6050_ADDR         0x68      // MPU6050 I2C address (AD0=GND)
@@ -162,13 +163,30 @@ static bool dark_theme_enabled = false;  // Default: light theme
 // Clock component handle
 static clock_handle_t main_clock = NULL;
 
+// MPU6050 sensor data
+#define USE_FAKE_SENSOR_DATA 0  // Set to 1 for fake data, 0 for real MPU6050
+
+static float current_pitch = 0.0f;
+static float current_roll = 0.0f;
+static SemaphoreHandle_t mpu_mutex = NULL;
+
+// Level menu UI objects
+static lv_obj_t *pitch_bar = NULL;
+static lv_obj_t *roll_bar = NULL;
+static lv_obj_t *pitch_label = NULL;
+static lv_obj_t *roll_label = NULL;
+
+// Previous values for change detection (avoid unnecessary redraws)
+static int16_t prev_pitch_mapped = 0;
+static int16_t prev_roll_mapped = 0;
+
 //LV_IMG_DECLARE(mouse_cursor_icon);			/*Declare the image file.*/
 
 
 /*********************
  *      DEFINES
  *********************/
-#define TAG " LittlevGL Demo"
+#define TAG "Lindi"
 #define LV_TICK_PERIOD_MS 10
 
 /**********************
@@ -178,6 +196,7 @@ static void lv_tick_task(void *arg);
 void guiTask(void *pvParameter);				// GUI任务
 static void perf_monitor_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void clock_update_task(lv_task_t *task);
+static void level_menu_update_task(lv_task_t *task);
 static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
 static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
@@ -310,8 +329,8 @@ static esp_err_t i2c_master_init(void)
         .mode = I2C_MODE_MASTER,
         .sda_io_num = I2C_MASTER_SDA_IO,
         .scl_io_num = I2C_MASTER_SCL_IO,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .sda_pullup_en = GPIO_PULLUP_DISABLE,  // Using external 4.7kΩ pull-ups
+        .scl_pullup_en = GPIO_PULLUP_DISABLE,  // Using external 4.7kΩ pull-ups
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
     };
     
@@ -408,52 +427,111 @@ static esp_err_t mpu6050_init(void)
 }
 
 // MPU6050 reading task - outputs data every second
+#if USE_FAKE_SENSOR_DATA
+// Fake sensor data generator for UI testing
+// Generates smooth sinusoidal pitch/roll values, updates 3 times per second
+static void fake_sensor_task(void *pvParameters)
+{
+    (void)pvParameters;
+    float phase = 0.0f;
+    const float phase_increment = 0.15f;  // Controls speed of oscillation
+    
+    ESP_LOGI(TAG, "Fake sensor task started - 30 updates/sec");
+    
+    while (1) {
+        // Generate fake pitch and roll values within ±15° range
+        // Using sine waves with different frequencies for variety
+        float fake_pitch = 12.0f * sinf(phase);           // ±12° pitch
+        float fake_roll = 10.0f * sinf(phase * 1.3f);     // ±10° roll, slightly different frequency
+        
+        // Update global values with mutex
+        if (xSemaphoreTake(mpu_mutex, portMAX_DELAY)) {
+            current_pitch = fake_pitch;
+            current_roll = fake_roll;
+            xSemaphoreGive(mpu_mutex);
+        }
+        
+        phase += phase_increment;
+        if (phase > 2.0f * M_PI) {
+            phase -= 2.0f * M_PI;  // Keep phase bounded
+        }
+        
+        vTaskDelay(33 / portTICK_PERIOD_MS);  // Update 30 times per second (~30Hz)
+    }
+}
+#else
+// Real MPU6050 sensor reading task
 static void mpu6050_read_task(void *pvParameters)
 {
     (void)pvParameters;
-    uint8_t data[14];  // 6 accel + 2 temp + 6 gyro = 14 bytes
+    uint8_t data[14];  // Read all sensor data in one transaction
+    
+    ESP_LOGI(TAG, "MPU6050 read task started");
     
     while (1) {
-        // Read all sensor data starting from ACCEL_XOUT_H (0x3B)
-        // This reads: ACCEL_X, ACCEL_Y, ACCEL_Z, TEMP, GYRO_X, GYRO_Y, GYRO_Z
+        // Read all sensor data (accel + temp + gyro) in one burst read
+        // Registers: 0x3B-0x48 (14 bytes total)
         esp_err_t err = i2c_master_write_read_device(I2C_MASTER_NUM, MPU6050_ADDR,
                                                      (uint8_t[]){MPU6050_ACCEL_XOUT_H}, 1,
                                                      data, 14,
-                                                     1000 / portTICK_PERIOD_MS);
+                                                     100 / portTICK_PERIOD_MS);
         
-        if (err == ESP_OK) {
-            // Parse accelerometer data (±2g range, sensitivity = 16384 LSB/g)
-            int16_t accel_x = (int16_t)((data[0] << 8) | data[1]);
-            int16_t accel_y = (int16_t)((data[2] << 8) | data[3]);
-            int16_t accel_z = (int16_t)((data[4] << 8) | data[5]);
-            
-            float ax = accel_x / 16384.0f;
-            float ay = accel_y / 16384.0f;
-            float az = accel_z / 16384.0f;
-            
-            // Parse temperature data (formula: temp = raw/340 + 36.53)
-            int16_t temp_raw = (int16_t)((data[6] << 8) | data[7]);
-            float temperature = (temp_raw / 340.0f) + 36.53f;
-            
-            // Parse gyroscope data (±250°/sec range, sensitivity = 131 LSB/°/sec)
-            int16_t gyro_x = (int16_t)((data[8] << 8) | data[9]);
-            int16_t gyro_y = (int16_t)((data[10] << 8) | data[11]);
-            int16_t gyro_z = (int16_t)((data[12] << 8) | data[13]);
-            
-            float gx = gyro_x / 131.0f;
-            float gy = gyro_y / 131.0f;
-            float gz = gyro_z / 131.0f;
-            
-            // Output to serial
-            ESP_LOGI(TAG, "MPU6050 | Accel: X=%.2fg Y=%.2fg Z=%.2fg | Gyro: X=%.1f°/s Y=%.1f°/s Z=%.1f°/s | Temp: %.1f°C",
-                     ax, ay, az, gx, gy, gz, temperature);
-        } else {
+        if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to read MPU6050: %s", esp_err_to_name(err));
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            continue;
         }
         
-        vTaskDelay(1000 / portTICK_PERIOD_MS);  // Update every 1 second
+        // Parse raw data from the 14-byte buffer
+        // Accel: bytes 0-5
+        int16_t accel_x_raw = (int16_t)((data[0] << 8) | data[1]);
+        int16_t accel_y_raw = (int16_t)((data[2] << 8) | data[3]);
+        int16_t accel_z_raw = (int16_t)((data[4] << 8) | data[5]);
+        
+        // Temp: bytes 6-7
+        int16_t temp_raw = (int16_t)((data[6] << 8) | data[7]);
+        
+        // Gyro: bytes 8-13
+        int16_t gyro_x_raw = (int16_t)((data[8] << 8) | data[9]);
+        int16_t gyro_y_raw = (int16_t)((data[10] << 8) | data[11]);
+        int16_t gyro_z_raw = (int16_t)((data[12] << 8) | data[13]);
+        float temperature = (temp_raw / 340.0f) + 36.53f;
+        
+        // Convert to physical units
+        float ax = accel_x_raw / 16384.0f;
+        float ay = accel_y_raw / 16384.0f;
+        float az = accel_z_raw / 16384.0f;
+        
+        float gx = gyro_x_raw / 131.0f;
+        float gy = gyro_y_raw / 131.0f;
+        float gz = gyro_z_raw / 131.0f;
+        
+        // Output raw data stream
+        printf("MPU6050 RAW | AccXYZ: %6d %6d %6d | GyroXYZ: %6d %6d %6d | Temp: %6d (%.1f°C)\n",
+               accel_x_raw, accel_y_raw, accel_z_raw,
+               gyro_x_raw, gyro_y_raw, gyro_z_raw,
+               temp_raw, temperature);
+        
+        printf("MPU6050  G  | AccXYZ: %6.2f %6.2f %6.2f | GyroXYZ: %6.1f %6.1f %6.1f\n",
+               ax, ay, az, gx, gy, gz);
+        
+        // Calculate pitch and roll from accelerometer (in degrees)
+        float pitch = atan2(ay, sqrt(ax * ax + az * az)) * 180.0f / M_PI;
+        float roll = atan2(-ax, az) * 180.0f / M_PI;
+        
+        printf("MPU6050 ANG | Pitch: %6.2f° | Roll: %6.2f°\n\n", pitch, roll);
+        
+        // Update global values with mutex (swapped to match display orientation)
+        if (xSemaphoreTake(mpu_mutex, portMAX_DELAY)) {
+            current_pitch = roll;
+            current_roll = pitch;
+            xSemaphoreGive(mpu_mutex);
+        }
+        
+        vTaskDelay(100 / portTICK_PERIOD_MS);  // 100ms = 10Hz polling
     }
 }
+#endif
 
 // Initialize WiFi in station mode
 void wifi_init_sta(void)
@@ -531,9 +609,9 @@ void wifi_init_sta(void)
 }
 
 
-// 主函数
+// Main function
 void app_main() {
-	printf("\r\nAPP %s is start!~\r\n", TAG);
+	ESP_LOGI(TAG, "Starting...");
 	
 	// Initialize NVS
 	esp_err_t ret = nvs_flash_init();
@@ -556,24 +634,33 @@ void app_main() {
 	ESP_LOGI(TAG, "Initializing I2C...");
 	ESP_ERROR_CHECK(i2c_master_init());
 	
-	// Initialize MPU6050
+#if USE_FAKE_SENSOR_DATA
+	// Using fake sensor data for UI testing
+	ESP_LOGI(TAG, "Using FAKE sensor data (MPU6050 disabled)");
+	mpu_mutex = xSemaphoreCreateMutex();
+	xTaskCreatePinnedToCore(fake_sensor_task, "fake_sensor", 2048, NULL, 5, NULL, 0);
+#else
+	// Initialize real MPU6050
 	ESP_LOGI(TAG, "Initializing MPU6050...");
 	if (mpu6050_init() == ESP_OK) {
-		// MPU6050 initialized - task creation disabled to reduce serial output
-		// Uncomment below to enable continuous sensor reading task:
-		// xTaskCreate(mpu6050_read_task, "mpu6050_read", 4096, NULL, 5, NULL);
-		// ESP_LOGI(TAG, "MPU6050 task started");
+		// Create mutex for MPU data
+		mpu_mutex = xSemaphoreCreateMutex();
+		
+		// Start MPU6050 reading task - pinned to Core 0 to avoid blocking display
+		xTaskCreatePinnedToCore(mpu6050_read_task, "mpu6050_read", 4096, NULL, 5, NULL, 0);
+		ESP_LOGI(TAG, "MPU6050 task started on Core 0");
 	} else {
 		ESP_LOGW(TAG, "MPU6050 initialization failed, continuing without sensor");
 	}
+#endif
 	
 	// Initialize WiFi with power save mode
 	ESP_LOGI(TAG, "Starting WiFi...");
 	wifi_init_sta();
 	
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
-	// 如果要使用任务创建图形，则需要创建固定核心任务,否则可能会出现诸如内存损坏等问题
-	xTaskCreate(guiTask, "gui", 4096*2, NULL, 0, NULL);
+	// GUI task pinned to Core 1 - keeps display smooth while Core 0 handles I2C
+	xTaskCreatePinnedToCore(guiTask, "gui", 4096*2, NULL, 0, NULL, 1);
 }
 
 static void lv_tick_task(void *arg) {
@@ -598,6 +685,80 @@ static void clock_label_formatter(lv_obj_t *gauge, char *buf, int bufsize, int32
 		snprintf(buf, bufsize, "12");
 	} else {
 		snprintf(buf, bufsize, "%d", hour);
+	}
+}
+
+// Map angle to bar value with logarithmic scaling
+// 75% of bar for ±10°, 25% for 10-30°
+static int16_t map_angle_to_bar(float angle)
+{
+	float abs_angle = fabsf(angle);
+	float sign = (angle >= 0) ? 1.0f : -1.0f;
+	float mapped;
+	
+	if (abs_angle <= 10.0f) {
+		// Linear mapping for ±10°: use 75% of range (22.5 out of 30)
+		mapped = (abs_angle / 10.0f) * 22.5f;
+	} else {
+		// Linear mapping for 10-30°: use remaining 25% (7.5 out of 30)
+		mapped = 22.5f + ((abs_angle - 10.0f) / 20.0f) * 7.5f;
+	}
+	
+	return (int16_t)(sign * mapped);
+}
+
+// Level menu update task - updates bars with logarithmic mapping
+static void level_menu_update_task(lv_task_t *task)
+{
+	(void)task;
+	
+	// Check if UI and mutex are ready
+	if (!pitch_bar || !roll_bar || !pitch_label || !roll_label || !mpu_mutex) {
+		return;  // Not ready yet
+	}
+	
+	float pitch, roll;
+	
+	// Get current values with mutex
+	if (xSemaphoreTake(mpu_mutex, 10 / portTICK_PERIOD_MS)) {
+		pitch = current_pitch;
+		roll = current_roll;
+		xSemaphoreGive(mpu_mutex);
+	} else {
+		return;  // Couldn't get mutex, skip this update
+	}
+	
+	// Clamp to ±30 degrees and use raw 1:1 mapping (no logarithmic transform)
+	if (pitch > 30.0f) pitch = 30.0f;
+	if (pitch < -30.0f) pitch = -30.0f;
+	if (roll > 30.0f) roll = 30.0f;
+	if (roll < -30.0f) roll = -30.0f;
+	
+	// Direct 1:1 mapping: degrees to bar units
+	int16_t pitch_mapped = (int16_t)pitch;
+	int16_t roll_mapped = (int16_t)roll;
+	
+	// Only update UI if values have actually changed (prevents unnecessary redraws)
+	if (pitch_mapped != prev_pitch_mapped) {
+		lv_bar_set_start_value(pitch_bar, pitch_mapped - 2, LV_ANIM_OFF);
+		lv_bar_set_value(pitch_bar, pitch_mapped + 2, LV_ANIM_OFF);
+		
+		char pitch_text[32];
+		snprintf(pitch_text, sizeof(pitch_text), "Pitch: %.1f", pitch);
+		lv_label_set_text(pitch_label, pitch_text);
+		
+		prev_pitch_mapped = pitch_mapped;
+	}
+	
+	if (roll_mapped != prev_roll_mapped) {
+		lv_bar_set_start_value(roll_bar, roll_mapped - 2, LV_ANIM_OFF);
+		lv_bar_set_value(roll_bar, roll_mapped + 2, LV_ANIM_OFF);
+		
+		char roll_text[32];
+		snprintf(roll_text, sizeof(roll_text), "Roll: %.1f", roll);
+		lv_label_set_text(roll_label, roll_text);
+		
+		prev_roll_mapped = roll_mapped;
 	}
 }
 
@@ -697,9 +858,12 @@ void guiTask(void *pvParameter) {
 	// Create clock update task (1 second interval)
 	lv_task_create(clock_update_task, 1000, LV_TASK_PRIO_LOW, NULL);
 	
+	// Create Level menu update task (100ms = 10Hz, sufficient for level display)
+	lv_task_create(level_menu_update_task, 100, LV_TASK_PRIO_MID, NULL);
+	
 	// Add content to Level tab
 	// Create Pitch bar (vertical, centered top)
-	lv_obj_t *pitch_bar = lv_bar_create(tab_level, NULL);
+	pitch_bar = lv_bar_create(tab_level, NULL);
 	lv_obj_set_size(pitch_bar, 15, 90);  // Thinner: 15px wide, 90px high
 	lv_obj_align(pitch_bar, NULL, LV_ALIGN_CENTER, 0, -25);  // Centered, shifted up
 	lv_bar_set_range(pitch_bar, -30, 30);  // +/- 30 degrees max
@@ -707,12 +871,12 @@ void guiTask(void *pvParameter) {
 	lv_bar_set_value(pitch_bar, 2, LV_ANIM_OFF);
 	
 	// Pitch label
-	lv_obj_t *pitch_label = lv_label_create(tab_level, NULL);
+	pitch_label = lv_label_create(tab_level, NULL);
 	lv_label_set_text(pitch_label, "Pitch: 0°");
 	lv_obj_align(pitch_label, pitch_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 	
 	// Create Roll bar (horizontal, centered below pitch)
-	lv_obj_t *roll_bar = lv_bar_create(tab_level, NULL);
+	roll_bar = lv_bar_create(tab_level, NULL);
 	lv_obj_set_size(roll_bar, 120, 15);  // Horizontal: 120px wide, 15px high
 	lv_obj_align(roll_bar, pitch_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
 	lv_bar_set_range(roll_bar, -30, 30);  // +/- 30 degrees max
@@ -720,7 +884,7 @@ void guiTask(void *pvParameter) {
 	lv_bar_set_value(roll_bar, 2, LV_ANIM_OFF);
 	
 	// Roll label
-	lv_obj_t *roll_label = lv_label_create(tab_level, NULL);
+	roll_label = lv_label_create(tab_level, NULL);
 	lv_label_set_text(roll_label, "Roll: 0°");
 	lv_obj_align(roll_label, roll_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 	
