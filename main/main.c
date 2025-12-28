@@ -106,6 +106,7 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "esp_sntp.h"
 #include "mqtt_client.h"
 #include "esp_crt_bundle.h"
+#include "cJSON.h"
 #include <time.h>
 #include <sys/time.h>
 
@@ -180,6 +181,8 @@ static bool sensor_inverted = false;     // Default: sensor pins forward
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static bool mqtt_connected = false;
 static char mqtt_client_id[32] = {0};  // Auto-generated from MAC address
+static TickType_t last_command_poll = 0;
+#define COMMAND_POLL_INTERVAL_MS 10000  // Poll for commands every 10 seconds
 
 // Language configuration
 typedef enum {
@@ -958,6 +961,156 @@ void wifi_init_sta(void)
     }
 }
 
+// ==================== MQTT Command System ====================
+
+#define NVS_CMD_NAMESPACE "mqtt_cmds"
+#define MAX_COMMAND_ID_LEN 32
+
+// Check if command_id has been executed before
+static bool is_command_executed(const char *command_id)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_CMD_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        return false;  // Assume not executed if can't open NVS
+    }
+    
+    uint32_t timestamp = 0;
+    err = nvs_get_u32(nvs_handle, command_id, &timestamp);
+    nvs_close(nvs_handle);
+    
+    return (err == ESP_OK);  // True if found
+}
+
+// Mark command as executed
+static void mark_command_executed(const char *command_id)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_CMD_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for command tracking: %s", esp_err_to_name(err));
+        return;
+    }
+    
+    uint32_t timestamp = (uint32_t)time(NULL);
+    err = nvs_set_u32(nvs_handle, command_id, timestamp);
+    if (err == ESP_OK) {
+        nvs_commit(nvs_handle);
+        ESP_LOGI(TAG, "✓ Marked command '%s' as executed", command_id);
+    } else {
+        ESP_LOGE(TAG, "Failed to save command ID: %s", esp_err_to_name(err));
+    }
+    nvs_close(nvs_handle);
+}
+
+// Execute say_time command
+static void execute_say_time(const char *command_id)
+{
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    char datetime_str[64];
+    strftime(datetime_str, sizeof(datetime_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+    
+    // Build JSON response
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "timestamp", (double)now);
+    cJSON_AddStringToObject(root, "datetime", datetime_str);
+    cJSON_AddStringToObject(root, "timezone", "UTC");  // TODO: Add actual timezone from config
+    cJSON_AddStringToObject(root, "source", "SNTP");
+    
+    char *json_string = cJSON_PrintUnformatted(root);
+    if (json_string) {
+        char topic[128];
+        snprintf(topic, sizeof(topic), "%s/device/timestamp", MQTT_BASE_TOPIC);
+        esp_mqtt_client_publish(mqtt_client, topic, json_string, 0, 1, 0);
+        ESP_LOGI(TAG, "✓ Published time to %s: %s", topic, json_string);
+        free(json_string);
+    }
+    cJSON_Delete(root);
+    
+    // Send acknowledgment
+    cJSON *ack = cJSON_CreateObject();
+    cJSON_AddStringToObject(ack, "command_id", command_id);
+    cJSON_AddStringToObject(ack, "command", "say_time");
+    cJSON_AddStringToObject(ack, "status", "executed");
+    cJSON_AddNumberToObject(ack, "timestamp", (double)now);
+    
+    char *ack_string = cJSON_PrintUnformatted(ack);
+    if (ack_string) {
+        char ack_topic[128];
+        snprintf(ack_topic, sizeof(ack_topic), "%s/device/command_ack", MQTT_BASE_TOPIC);
+        esp_mqtt_client_publish(mqtt_client, ack_topic, ack_string, 0, 1, 0);
+        ESP_LOGI(TAG, "✓ Published ack to %s", ack_topic);
+        free(ack_string);
+    }
+    cJSON_Delete(ack);
+}
+
+// Process incoming command
+static void process_command(const char *payload, int payload_len)
+{
+    ESP_LOGI(TAG, "📥 Raw payload (%d bytes): %.*s", payload_len, payload_len, payload);
+    
+    char *payload_copy = strndup(payload, payload_len);
+    if (!payload_copy) {
+        ESP_LOGE(TAG, "Failed to allocate memory for command payload");
+        return;
+    }
+    
+    ESP_LOGI(TAG, "Parsing JSON: %s", payload_copy);
+    cJSON *json = cJSON_Parse(payload_copy);
+    free(payload_copy);
+    
+    if (!json) {
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            ESP_LOGE(TAG, "Invalid JSON in command payload. Parse error before: %s", error_ptr);
+        } else {
+            ESP_LOGE(TAG, "Invalid JSON in command payload");
+        }
+        return;
+    }
+    
+    // Extract command_id
+    cJSON *cmd_id_obj = cJSON_GetObjectItem(json, "command_id");
+    if (!cmd_id_obj || !cJSON_IsString(cmd_id_obj)) {
+        ESP_LOGE(TAG, "Missing or invalid 'command_id' in command");
+        cJSON_Delete(json);
+        return;
+    }
+    const char *command_id = cmd_id_obj->valuestring;
+    
+    // Check if already executed
+    if (is_command_executed(command_id)) {
+        ESP_LOGW(TAG, "⚠ Command '%s' already executed, ignoring", command_id);
+        cJSON_Delete(json);
+        return;
+    }
+    
+    // Extract command name
+    cJSON *cmd_obj = cJSON_GetObjectItem(json, "command");
+    if (!cmd_obj || !cJSON_IsString(cmd_obj)) {
+        ESP_LOGE(TAG, "Missing or invalid 'command' in command");
+        cJSON_Delete(json);
+        return;
+    }
+    const char *command = cmd_obj->valuestring;
+    
+    ESP_LOGI(TAG, "📨 Executing command: '%s' (ID: %s)", command, command_id);
+    
+    // Execute whitelisted commands
+    if (strcmp(command, "say_time") == 0) {
+        execute_say_time(command_id);
+        mark_command_executed(command_id);
+    } else {
+        ESP_LOGW(TAG, "❌ Unknown command '%s' - not in whitelist", command);
+    }
+    
+    cJSON_Delete(json);
+}
 
 // MQTT event handler
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
@@ -981,6 +1134,15 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             
             int msg_id = esp_mqtt_client_publish(mqtt_client, topic, message, 0, 1, 0);
             ESP_LOGI(TAG, "MQTT: Published to '%s': %s (msg_id=%d)", topic, message, msg_id);
+            
+            // Subscribe to command topic
+            char cmd_topic[128];
+            snprintf(cmd_topic, sizeof(cmd_topic), "%s/device/command", MQTT_BASE_TOPIC);
+            msg_id = esp_mqtt_client_subscribe(mqtt_client, cmd_topic, 1);
+            ESP_LOGI(TAG, "📬 MQTT: Subscribed to '%s' (msg_id=%d)", cmd_topic, msg_id);
+            
+            // Reset polling timer
+            last_command_poll = xTaskGetTickCount();
             break;
             
         case MQTT_EVENT_DISCONNECTED:
@@ -1002,7 +1164,18 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT: Data received on topic '%.*s'", event->topic_len, event->topic);
-            ESP_LOGI(TAG, "MQTT: Data: %.*s", event->data_len, event->data);
+            
+            // Check if this is a command topic
+            char cmd_topic_check[128];
+            snprintf(cmd_topic_check, sizeof(cmd_topic_check), "%s/device/command", MQTT_BASE_TOPIC);
+            
+            if (event->topic_len == strlen(cmd_topic_check) && 
+                strncmp(event->topic, cmd_topic_check, event->topic_len) == 0) {
+                // Process command
+                process_command(event->data, event->data_len);
+            } else {
+                ESP_LOGI(TAG, "MQTT: Data: %.*s", event->data_len, event->data);
+            }
             break;
             
         case MQTT_EVENT_ERROR:
