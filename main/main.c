@@ -175,6 +175,7 @@ static const char *STR_CALIBRATE[] = {"Calibrate", "Kalibreer"};
 static const char *STR_RESET[] = {"Reset", "Reset"};
 static const char *STR_CONFIRM_CAL[] = {"Are you sure?", "Weet u het zeker?"};
 static const char *STR_CAL_WARNING[] = {"Make sure RV is perfectly level!", "Zorg dat de camper perfect waterpas staat!"};
+static const char *STR_RESET_WARNING[] = {"Previous offset will be lost!", "Uw voorinstelling gaat verloren!"};
 static const char *STR_YES[] = {"Yes", "Ja"};
 static const char *STR_NO[] = {"No", "Nee"};
 
@@ -259,6 +260,7 @@ static void language_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void calibrate_confirm_cb(lv_obj_t *btn, lv_event_t e);
 static void calibrate_cancel_cb(lv_obj_t *btn, lv_event_t e);
 static void calibrate_btn_cb(lv_obj_t *btn, lv_event_t e);
+static void reset_confirm_cb(lv_obj_t *btnm, lv_event_t e);
 static void reset_calibration_cb(lv_obj_t *btn, lv_event_t e);
 static esp_err_t i2c_master_init(void);
 static esp_err_t mpu6050_init(void);
@@ -1193,14 +1195,15 @@ void guiTask(void *pvParameter) {
 	lv_label_set_text(roll_label, roll_initial);
 	lv_obj_align(roll_label, roll_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 	
-	// Add Calibrate button (left side of pitch bar)
+	// Add Calibrate button (far left of screen, vertically centered with pitch bar)
 	lv_obj_t *btn_calibrate = lv_btn_create(tab_level, NULL);
 	lv_obj_set_size(btn_calibrate, 70, 35);
-	lv_obj_align(btn_calibrate, pitch_bar, LV_ALIGN_OUT_LEFT_MID, -10, 0);
+	lv_obj_align(btn_calibrate, NULL, LV_ALIGN_IN_LEFT_MID, 5, -25);  // 5px from left edge, same vertical as pitch bar
 	lv_obj_set_event_cb(btn_calibrate, calibrate_btn_cb);
 	
 	lv_obj_t *label_cal = lv_label_create(btn_calibrate, NULL);
 	lv_label_set_text(label_cal, STR_CALIBRATE[current_language]);
+	lv_obj_set_style_local_text_font(label_cal, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_12);  // Smaller font
 	
 	// Add Reset button (below calibrate button)
 	lv_obj_t *btn_reset = lv_btn_create(tab_level, NULL);
@@ -1210,6 +1213,7 @@ void guiTask(void *pvParameter) {
 	
 	lv_obj_t *label_reset = lv_label_create(btn_reset, NULL);
 	lv_label_set_text(label_reset, STR_RESET[current_language]);
+	lv_obj_set_style_local_text_font(label_reset, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_12);  // Smaller font
 	
 	// Add content to Info tab
 	lv_obj_t *label_info = lv_label_create(tab_info, NULL);
@@ -1543,12 +1547,48 @@ static void calibrate_btn_cb(lv_obj_t *btn, lv_event_t e)
     }
 }
 
-// Reset calibration button callback
+// Confirmation callback for reset calibration
+static void reset_confirm_cb(lv_obj_t *btnm, lv_event_t e)
+{
+    if (e == LV_EVENT_VALUE_CHANGED) {
+        uint16_t btn_id = lv_btnmatrix_get_active_btn(btnm);
+        lv_obj_t *mbox = lv_obj_get_parent(btnm);
+        
+        if (btn_id == 0) {  // Yes button
+            reset_calibration_offsets();
+            ESP_LOGI(TAG, "Calibration reset confirmed");
+        } else {  // No button
+            ESP_LOGI(TAG, "Calibration reset cancelled");
+        }
+        
+        // Close the message box
+        lv_msgbox_start_auto_close(mbox, 0);
+    }
+}
+
+// Reset calibration button callback - shows confirmation dialog
 static void reset_calibration_cb(lv_obj_t *btn, lv_event_t e)
 {
     if (e == LV_EVENT_CLICKED) {
-        reset_calibration_offsets();
-        ESP_LOGI(TAG, "Calibration reset");
+        // Create confirmation message box
+        static const char *btns[] = {NULL, NULL, ""};  // Will be filled with translated strings
+        btns[0] = STR_YES[current_language];
+        btns[1] = STR_NO[current_language];
+        
+        char msg[150];
+        snprintf(msg, sizeof(msg), "%s\n\n%s", 
+                 STR_CONFIRM_CAL[current_language],
+                 STR_RESET_WARNING[current_language]);
+        
+        lv_obj_t *mbox = lv_msgbox_create(lv_scr_act(), NULL);
+        lv_msgbox_set_text(mbox, msg);
+        lv_msgbox_add_btns(mbox, btns);
+        lv_obj_set_width(mbox, 250);
+        lv_obj_align(mbox, NULL, LV_ALIGN_CENTER, 0, 0);
+        
+        // Set event callback for button matrix
+        lv_obj_t *btnm = lv_msgbox_get_btnmatrix(mbox);
+        lv_obj_set_event_cb(btnm, reset_confirm_cb);
     }
 }
 
