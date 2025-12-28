@@ -56,6 +56,26 @@ Het apparaat heeft **3 hoofdtabbladen** waartussen u kunt schakelen door te tikk
 
 **Meetbereik:** ±30° (aanbevolen ±10° voor beste nauwkeurigheid)
 
+### Kalibratie (Knoppen Linkerzijde)
+
+**Wanneer Kalibreren:**
+- Sensor kan niet perfect waterpas gemonteerd worden
+- Compensatie nodig voor vaste montagehoek
+
+**Hoe Kalibreren:**
+1. Zet camper handmatig waterpas (met steunen/blokken + externe waterpas)
+2. Wacht tot metingen stabiel zijn
+3. Druk op **Kalibreer** knop (linkerzijde)
+4. Bevestig wanneer gevraagd
+5. Huidige positie is nu nulreferentie
+
+**Reset Kalibratie:**
+- Druk op **Reset** knop (onder Kalibreer)
+- Bevestig (vorige offset gaat verloren)
+- Keert terug naar ruwe sensormetingen
+
+⚠️ **Belangrijk:** Zet camper altijd handmatig waterpas VOOR kalibratie!
+
 ---
 
 ## ⚙️ Instellingen (Info Tabblad)

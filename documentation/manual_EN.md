@@ -134,6 +134,32 @@ The interface consists of three main tabs accessible via touch:
 - Precision: ±0.1°
 - Recommended operating range: ±10° for best accuracy
 
+**Calibration:**
+
+The Level tab includes calibration controls on the left side:
+
+- **Calibrate Button** - Sets the current position as zero reference
+  - Use when the sensor cannot be mounted perfectly level
+  - **IMPORTANT:** Before calibrating, manually level the RV using leveling jacks or blocks
+  - Ensure the RV is perfectly level (use external level tool or leveling app)
+  - Press "Calibrate" and confirm when ready
+  - The current readings will be stored as offset and subtracted from all future measurements
+  - Calibration is saved to memory and persists after restart
+
+- **Reset Button** - Removes calibration offset
+  - Returns to raw sensor readings
+  - Requires confirmation (previous offset will be lost)
+  - Use if you need to recalibrate or if sensor mounting has changed
+
+**Calibration Workflow:**
+1. Park RV on reasonably flat surface
+2. Use leveling jacks to level the RV perfectly (use bubble level or leveling app)
+3. Wait for readings to stabilize (1-2 seconds)
+4. Press "Calibrate" button on Level tab
+5. Confirm the calibration when prompted
+6. Display now shows 0° when RV is level
+7. Drive to new location - readings show actual tilt relative to your level reference
+
 ---
 
 ### Info Tab

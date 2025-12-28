@@ -134,6 +134,32 @@ De interface bestaat uit drie hoofdtabbladen die toegankelijk zijn via aanraking
 - Precisie: ±0,1°
 - Aanbevolen werkbereik: ±10° voor beste nauwkeurigheid
 
+**Kalibratie:**
+
+Het Waterpas-tabblad bevat kalibratiebedieningen aan de linkerkant:
+
+- **Kalibreer Knop** - Stelt de huidige positie in als nulreferentie
+  - Gebruik wanneer de sensor niet perfect waterpas gemonteerd kan worden
+  - **BELANGRIJK:** Zet de camper handmatig waterpas met steunen of blokken VOOR kalibratie
+  - Zorg dat de camper perfect waterpas staat (gebruik externe waterpas of nivelleringsapp)
+  - Druk op "Kalibreer" en bevestig wanneer u klaar bent
+  - De huidige metingen worden opgeslagen als offset en afgetrokken van alle toekomstige metingen
+  - Kalibratie wordt opgeslagen in het geheugen en blijft behouden na herstart
+
+- **Reset Knop** - Verwijdert kalibratie-offset
+  - Keert terug naar ruwe sensormetingen
+  - Vereist bevestiging (vorige offset gaat verloren)
+  - Gebruik als u opnieuw moet kalibreren of als de sensormontage is gewijzigd
+
+**Kalibratie Werkwijze:**
+1. Parkeer camper op redelijk vlak oppervlak
+2. Gebruik steunen om de camper perfect waterpas te zetten (gebruik waterpas of nivelleringsapp)
+3. Wacht tot metingen stabiel zijn (1-2 seconden)
+4. Druk op "Kalibreer" knop op Waterpas-tabblad
+5. Bevestig de kalibratie wanneer hierom wordt gevraagd
+6. Display toont nu 0° wanneer camper waterpas staat
+7. Rijd naar nieuwe locatie - metingen tonen werkelijke kanteling relatief aan uw waterpas referentie
+
 ---
 
 ### Info Tab

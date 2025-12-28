@@ -56,6 +56,26 @@ The device has **3 main tabs** you can switch between by tapping:
 
 **Measurement Range:** ±30° (recommended ±10° for best accuracy)
 
+### Calibration (Left Side Buttons)
+
+**When to Calibrate:**
+- Sensor cannot be mounted perfectly level
+- Need to compensate for fixed mounting angle
+
+**How to Calibrate:**
+1. Level RV manually (use jacks/blocks + external level)
+2. Wait for readings to stabilize
+3. Press **Calibrate** button (left side)
+4. Confirm when prompted
+5. Current position is now zero reference
+
+**Reset Calibration:**
+- Press **Reset** button (below Calibrate)
+- Confirm (previous offset will be lost)
+- Returns to raw sensor readings
+
+⚠️ **Important:** Always level RV manually BEFORE calibrating!
+
 ---
 
 ## ⚙️ Settings (Info Tab)
