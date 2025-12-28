@@ -171,6 +171,12 @@ static const char *STR_SHOW_FPS[] = {"Show FPS/CPU", "Toon FPS/CPU"};
 static const char *STR_DARK_THEME[] = {"Dark Theme", "Donker Thema"};
 static const char *STR_INVERT_LEVEL[] = {"Invert Level", "Niveau omkeren"};
 static const char *STR_LANGUAGE[] = {"EN/NL", "EN/NL"};
+static const char *STR_CALIBRATE[] = {"Calibrate", "Kalibreer"};
+static const char *STR_RESET[] = {"Reset", "Reset"};
+static const char *STR_CONFIRM_CAL[] = {"Are you sure?", "Weet u het zeker?"};
+static const char *STR_CAL_WARNING[] = {"Make sure RV is perfectly level!", "Zorg dat de camper perfect waterpas staat!"};
+static const char *STR_YES[] = {"Yes", "Ja"};
+static const char *STR_NO[] = {"No", "Nee"};
 
 #define NVS_NAMESPACE "lindi_cfg"
 
@@ -203,6 +209,8 @@ static clock_handle_t main_clock = NULL;
 
 static float current_pitch = 0.0f;
 static float current_roll = 0.0f;
+static float pitch_offset = 0.0f;  // Calibration offset for pitch
+static float roll_offset = 0.0f;   // Calibration offset for roll
 static SemaphoreHandle_t mpu_mutex = NULL;
 
 // SD card global
@@ -248,6 +256,10 @@ static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void sensor_inversion_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void language_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static void calibrate_confirm_cb(lv_obj_t *btn, lv_event_t e);
+static void calibrate_cancel_cb(lv_obj_t *btn, lv_event_t e);
+static void calibrate_btn_cb(lv_obj_t *btn, lv_event_t e);
+static void reset_calibration_cb(lv_obj_t *btn, lv_event_t e);
 static esp_err_t i2c_master_init(void);
 static esp_err_t mpu6050_init(void);
 static void mpu6050_read_task(void *pvParameters);
@@ -432,6 +444,62 @@ void save_language_setting(language_t lang)
         }
         nvs_close(nvs_handle);
     }
+}
+
+// Load calibration offsets from NVS
+void load_calibration_offsets(void)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        int32_t pitch_val = 0, roll_val = 0;
+        // Load pitch offset (stored as int32 * 1000 for precision)
+        err = nvs_get_i32(nvs_handle, "pitch_off", &pitch_val);
+        if (err == ESP_OK) {
+            pitch_offset = pitch_val / 1000.0f;
+            ESP_LOGI(TAG, "Loaded pitch offset: %.3f°", pitch_offset);
+        }
+        // Load roll offset
+        err = nvs_get_i32(nvs_handle, "roll_off", &roll_val);
+        if (err == ESP_OK) {
+            roll_offset = roll_val / 1000.0f;
+            ESP_LOGI(TAG, "Loaded roll offset: %.3f°", roll_offset);
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Save calibration offsets to NVS
+void save_calibration_offsets(float pitch_off, float roll_off)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        // Store as int32 * 1000 for precision
+        int32_t pitch_val = (int32_t)(pitch_off * 1000.0f);
+        int32_t roll_val = (int32_t)(roll_off * 1000.0f);
+        
+        err = nvs_set_i32(nvs_handle, "pitch_off", pitch_val);
+        if (err == ESP_OK) {
+            err = nvs_set_i32(nvs_handle, "roll_off", roll_val);
+        }
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Saved calibration offsets: pitch=%.3f° roll=%.3f°", pitch_off, roll_off);
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Reset calibration offsets
+void reset_calibration_offsets(void)
+{
+    pitch_offset = 0.0f;
+    roll_offset = 0.0f;
+    save_calibration_offsets(0.0f, 0.0f);
+    ESP_LOGI(TAG, "Calibration offsets reset to zero");
 }
 
 // Initialize SD card on VSPI bus
@@ -714,16 +782,25 @@ static void mpu6050_read_task(void *pvParameters)
         // printf("MPU6050  G  | AccXYZ: %6.2f %6.2f %6.2f | GyroXYZ: %6.1f %6.1f %6.1f\n",
         //        ax, ay, az, gx, gy, gz);
         
-        // Calculate pitch and roll from accelerometer (in degrees)
-        float pitch = -atan2(ay, sqrt(ax * ax + az * az)) * 180.0f / M_PI;
-        float roll = -atan2(ax, az) * 180.0f / M_PI;
+        // Calculate angles from accelerometer (in degrees)
+        // Note: Due to physical sensor mounting orientation:
+        // - Sensor's mathematical 'pitch' axis = Physical ROLL (left/right tilt)
+        // - Sensor's mathematical 'roll' axis = Physical PITCH (forward/backward tilt)
+        float sensor_pitch_axis = -atan2(ay, sqrt(ax * ax + az * az)) * 180.0f / M_PI;
+        float sensor_roll_axis = -atan2(ax, az) * 180.0f / M_PI;
         
-        // printf("MPU6050 ANG | Pitch: %6.2f° | Roll: %6.2f°\n\n", pitch, roll);
+        // Map to physical orientation (sensor mounted 90° rotated)
+        float physical_pitch = sensor_roll_axis;   // Forward/backward tilt
+        float physical_roll = sensor_pitch_axis;   // Left/right tilt
         
-        // Update global values with mutex (swapped to match display orientation)
+        // Apply calibration offsets (subtract to zero out)
+        physical_pitch -= pitch_offset;
+        physical_roll -= roll_offset;
+        
+        // Update global values with mutex
         if (xSemaphoreTake(mpu_mutex, portMAX_DELAY)) {
-            current_pitch = roll;
-            current_roll = pitch;
+            current_pitch = physical_pitch;
+            current_roll = physical_roll;
             xSemaphoreGive(mpu_mutex);
         }
         
@@ -831,6 +908,9 @@ void app_main() {
 	
 	// Load language setting from NVS
 	load_language_setting();
+	
+	// Load calibration offsets from NVS
+	load_calibration_offsets();
 	
 	// Initialize event loop
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -1113,6 +1193,24 @@ void guiTask(void *pvParameter) {
 	lv_label_set_text(roll_label, roll_initial);
 	lv_obj_align(roll_label, roll_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 	
+	// Add Calibrate button (left side of pitch bar)
+	lv_obj_t *btn_calibrate = lv_btn_create(tab_level, NULL);
+	lv_obj_set_size(btn_calibrate, 70, 35);
+	lv_obj_align(btn_calibrate, pitch_bar, LV_ALIGN_OUT_LEFT_MID, -10, 0);
+	lv_obj_set_event_cb(btn_calibrate, calibrate_btn_cb);
+	
+	lv_obj_t *label_cal = lv_label_create(btn_calibrate, NULL);
+	lv_label_set_text(label_cal, STR_CALIBRATE[current_language]);
+	
+	// Add Reset button (below calibrate button)
+	lv_obj_t *btn_reset = lv_btn_create(tab_level, NULL);
+	lv_obj_set_size(btn_reset, 70, 35);
+	lv_obj_align(btn_reset, btn_calibrate, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+	lv_obj_set_event_cb(btn_reset, reset_calibration_cb);
+	
+	lv_obj_t *label_reset = lv_label_create(btn_reset, NULL);
+	lv_label_set_text(label_reset, STR_RESET[current_language]);
+	
 	// Add content to Info tab
 	lv_obj_t *label_info = lv_label_create(tab_info, NULL);
 	
@@ -1383,6 +1481,74 @@ static void language_toggle_cb(lv_obj_t *sw, lv_event_t e)
         if (lang_label) lv_label_set_text(lang_label, STR_LANGUAGE[current_language]);
         
         // Note: Tab names require restart to update
+    }
+}
+
+// Confirmation dialog callback for calibration
+static void calibrate_confirm_cb(lv_obj_t *btnm, lv_event_t e)
+{
+    if (e == LV_EVENT_VALUE_CHANGED) {
+        uint16_t btn_id = lv_btnmatrix_get_active_btn(btnm);
+        lv_obj_t *mbox = lv_obj_get_parent(btnm);
+        
+        if (btn_id == 0) {  // Yes button
+            // Perform calibration - save current sensor readings as offsets
+            if (xSemaphoreTake(mpu_mutex, 100 / portTICK_PERIOD_MS)) {
+                pitch_offset = current_pitch;
+                roll_offset = current_roll;
+                xSemaphoreGive(mpu_mutex);
+                
+                save_calibration_offsets(pitch_offset, roll_offset);
+                ESP_LOGI(TAG, "Calibrated! Offsets: pitch=%.3f° roll=%.3f°", pitch_offset, roll_offset);
+            }
+        } else {  // No button
+            ESP_LOGI(TAG, "Calibration cancelled");
+        }
+        
+        // Close the message box
+        lv_msgbox_start_auto_close(mbox, 0);
+    }
+}
+
+// Cancel callback for calibration (not used, kept for compatibility)
+static void calibrate_cancel_cb(lv_obj_t *btn, lv_event_t e)
+{
+    (void)btn;
+    (void)e;
+}
+
+// Calibration button callback - shows confirmation dialog
+static void calibrate_btn_cb(lv_obj_t *btn, lv_event_t e)
+{
+    if (e == LV_EVENT_CLICKED) {
+        // Create confirmation message box
+        static const char *btns[] = {NULL, NULL, ""};  // Will be filled with translated strings
+        btns[0] = STR_YES[current_language];
+        btns[1] = STR_NO[current_language];
+        
+        char msg[150];
+        snprintf(msg, sizeof(msg), "%s\n\n%s", 
+                 STR_CONFIRM_CAL[current_language],
+                 STR_CAL_WARNING[current_language]);
+        
+        lv_obj_t *mbox = lv_msgbox_create(lv_scr_act(), NULL);
+        lv_msgbox_set_text(mbox, msg);
+        lv_msgbox_add_btns(mbox, btns);
+        lv_obj_set_width(mbox, 250);
+        lv_obj_align(mbox, NULL, LV_ALIGN_CENTER, 0, 0);
+        
+        // Set event callback for button matrix
+        lv_obj_t *btnm = lv_msgbox_get_btnmatrix(mbox);
+        lv_obj_set_event_cb(btnm, calibrate_confirm_cb);
+    }
+}
+
+// Reset calibration button callback
+static void reset_calibration_cb(lv_obj_t *btn, lv_event_t e)
+{
+    if (e == LV_EVENT_CLICKED) {
+        reset_calibration_offsets();
+        ESP_LOGI(TAG, "Calibration reset");
     }
 }
 
