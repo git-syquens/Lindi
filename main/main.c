@@ -145,6 +145,27 @@ static bool winter_time_enabled = false; // Default: off (use summer time)
 static bool dark_theme_enabled = false;  // Default: light theme
 static bool sensor_inverted = false;     // Default: sensor pins forward
 
+// Language configuration
+typedef enum {
+    LANG_EN = 0,
+    LANG_NL = 1
+} language_t;
+
+static language_t current_language = LANG_EN;  // Default: English
+
+// Translation strings (index by language_t)
+static const char *STR_TAB_START[] = {"Start", "Start"};
+static const char *STR_TAB_LEVEL[] = {"Level", "Waterpas"};
+static const char *STR_TAB_INFO[] = {"Info", "Info"};
+static const char *STR_PITCH[] = {"Pitch", "Kanteling"};
+static const char *STR_ROLL[] = {"Roll", "Helling"};
+static const char *STR_TIMEZONE[] = {"Timezone:", "Tijdzone:"};
+static const char *STR_WINTER_TIME[] = {"Winter Time", "Wintertijd"};
+static const char *STR_SHOW_FPS[] = {"Show FPS/CPU", "Toon FPS/CPU"};
+static const char *STR_DARK_THEME[] = {"Dark Theme", "Donker Thema"};
+static const char *STR_INVERT_LEVEL[] = {"Invert Level", "Niveau omkeren"};
+static const char *STR_LANGUAGE[] = {"Language", "Taal"};
+
 #define NVS_NAMESPACE "lindi_cfg"
 
 // I2C Configuration
@@ -202,6 +223,7 @@ static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
 static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void sensor_inversion_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static void language_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static esp_err_t i2c_master_init(void);
 static esp_err_t mpu6050_init(void);
 static void mpu6050_read_task(void *pvParameters);
@@ -349,6 +371,39 @@ void save_sensor_inversion_setting(bool inverted)
             err = nvs_commit(nvs_handle);
             if (err == ESP_OK) {
                 ESP_LOGI(TAG, "Saved sensor inversion setting: %s", inverted ? "inverted" : "normal");
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Load language setting from NVS
+void load_language_setting(void)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        uint8_t value = 0;
+        err = nvs_get_u8(nvs_handle, "language", &value);
+        if (err == ESP_OK) {
+            current_language = (value == 1) ? LANG_NL : LANG_EN;
+            ESP_LOGI(TAG, "Loaded language setting: %s", current_language == LANG_NL ? "NL" : "EN");
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Save language setting to NVS
+void save_language_setting(language_t lang)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(nvs_handle, "language", lang == LANG_NL ? 1 : 0);
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Saved language setting: %s", lang == LANG_NL ? "NL" : "EN");
             }
         }
         nvs_close(nvs_handle);
@@ -665,6 +720,9 @@ void app_main() {
 	// Load sensor inversion setting from NVS
 	load_sensor_inversion_setting();
 	
+	// Load language setting from NVS
+	load_language_setting();
+	
 	// Initialize event loop
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
 	
@@ -788,7 +846,7 @@ static void level_menu_update_task(lv_task_t *task)
 		lv_bar_set_value(pitch_bar, pitch_mapped + 2, LV_ANIM_OFF);
 		
 		char pitch_text[32];
-		snprintf(pitch_text, sizeof(pitch_text), "Pitch: %.1f", pitch);
+		snprintf(pitch_text, sizeof(pitch_text), "%s: %.1f°", STR_PITCH[current_language], pitch);
 		lv_label_set_text(pitch_label, pitch_text);
 		
 		prev_pitch_mapped = pitch_mapped;
@@ -799,7 +857,7 @@ static void level_menu_update_task(lv_task_t *task)
 		lv_bar_set_value(roll_bar, roll_mapped + 2, LV_ANIM_OFF);
 		
 		char roll_text[32];
-		snprintf(roll_text, sizeof(roll_text), "Roll: %.1f", roll);
+		snprintf(roll_text, sizeof(roll_text), "%s: %.1f°", STR_ROLL[current_language], roll);
 		lv_label_set_text(roll_label, roll_text);
 		
 		prev_roll_mapped = roll_mapped;
@@ -877,9 +935,9 @@ void guiTask(void *pvParameter) {
 */	
 	// Create tabview with 3 tabs: Start, Level, Info
 	lv_obj_t *tv = lv_tabview_create(lv_scr_act(), NULL);
-	lv_obj_t *tab_start = lv_tabview_add_tab(tv, "Start");
-	lv_obj_t *tab_level = lv_tabview_add_tab(tv, "Level");
-	lv_obj_t *tab_info = lv_tabview_add_tab(tv, "Info");
+	lv_obj_t *tab_start = lv_tabview_add_tab(tv, STR_TAB_START[current_language]);
+	lv_obj_t *tab_level = lv_tabview_add_tab(tv, STR_TAB_LEVEL[current_language]);
+	lv_obj_t *tab_info = lv_tabview_add_tab(tv, STR_TAB_INFO[current_language]);
 	
 	// Make Start and Level tabs non-scrollable
 	lv_page_set_scrl_layout(tab_start, LV_LAYOUT_OFF);
@@ -916,7 +974,9 @@ void guiTask(void *pvParameter) {
 	
 	// Pitch label
 	pitch_label = lv_label_create(tab_level, NULL);
-	lv_label_set_text(pitch_label, "Pitch: 0°");
+	char pitch_initial[32];
+	snprintf(pitch_initial, sizeof(pitch_initial), "%s: 0°", STR_PITCH[current_language]);
+	lv_label_set_text(pitch_label, pitch_initial);
 	lv_obj_align(pitch_label, pitch_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 	
 	// Create Roll bar (horizontal, centered below pitch)
@@ -929,7 +989,9 @@ void guiTask(void *pvParameter) {
 	
 	// Roll label
 	roll_label = lv_label_create(tab_level, NULL);
-	lv_label_set_text(roll_label, "Roll: 0°");
+	char roll_initial[32];
+	snprintf(roll_initial, sizeof(roll_initial), "%s: 0°", STR_ROLL[current_language]);
+	lv_label_set_text(roll_label, roll_initial);
 	lv_obj_align(roll_label, roll_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 	
 	// Add content to Info tab
@@ -986,7 +1048,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_align(tz_cont, wifi_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
 	lv_obj_t *tz_label = lv_label_create(tz_cont, NULL);
-	lv_label_set_text(tz_label, "Timezone:");
+	lv_label_set_text(tz_label, STR_TIMEZONE[current_language]);
 	
 	timezone_selector = lv_dropdown_create(tz_cont, NULL);
 	lv_dropdown_set_options(timezone_selector, 
@@ -1002,7 +1064,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_align(winter_cont, tz_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
 	lv_obj_t *winter_label = lv_label_create(winter_cont, NULL);
-	lv_label_set_text(winter_label, "Winter Time");
+	lv_label_set_text(winter_label, STR_WINTER_TIME[current_language]);
 	
 	lv_obj_t *winter_switch = lv_switch_create(winter_cont, NULL);
 	if (winter_time_enabled) {
@@ -1019,7 +1081,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_align(perf_cont, winter_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
 	lv_obj_t *perf_label = lv_label_create(perf_cont, NULL);
-	lv_label_set_text(perf_label, "Show FPS/CPU");
+	lv_label_set_text(perf_label, STR_SHOW_FPS[current_language]);
 	
 	lv_obj_t *perf_switch = lv_switch_create(perf_cont, NULL);
 	lv_switch_off(perf_switch, LV_ANIM_OFF);  // OFF by default
@@ -1032,7 +1094,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_align(theme_cont, perf_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
 	lv_obj_t *theme_label = lv_label_create(theme_cont, NULL);
-	lv_label_set_text(theme_label, "Dark Theme");
+	lv_label_set_text(theme_label, STR_DARK_THEME[current_language]);
 	
 	lv_obj_t *theme_switch = lv_switch_create(theme_cont, NULL);
 	if (dark_theme_enabled) {
@@ -1059,7 +1121,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_align(sensor_cont, theme_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
 	lv_obj_t *sensor_label = lv_label_create(sensor_cont, NULL);
-	lv_label_set_text(sensor_label, "Invert Level");
+	lv_label_set_text(sensor_label, STR_INVERT_LEVEL[current_language]);
 	
 	lv_obj_t *sensor_switch = lv_switch_create(sensor_cont, NULL);
 	if (sensor_inverted) {
@@ -1068,6 +1130,23 @@ void guiTask(void *pvParameter) {
 		lv_switch_off(sensor_switch, LV_ANIM_OFF);
 	}
 	lv_obj_set_event_cb(sensor_switch, sensor_inversion_toggle_cb);
+
+	// Language selection toggle (EN/NL)
+	lv_obj_t *lang_cont = lv_cont_create(tab_info, NULL);
+	lv_cont_set_layout(lang_cont, LV_LAYOUT_ROW_MID);
+	lv_obj_set_width(lang_cont, lv_obj_get_width(tab_info) - 20);
+	lv_obj_align(lang_cont, sensor_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+	
+	lv_obj_t *lang_label = lv_label_create(lang_cont, NULL);
+	lv_label_set_text(lang_label, STR_LANGUAGE[current_language]);
+	
+	lv_obj_t *lang_switch = lv_switch_create(lang_cont, NULL);
+	if (current_language == LANG_NL) {
+		lv_switch_on(lang_switch, LV_ANIM_OFF);
+	} else {
+		lv_switch_off(lang_switch, LV_ANIM_OFF);
+	}
+	lv_obj_set_event_cb(lang_switch, language_toggle_cb);
 
     while (1) {
 		vTaskDelay(1);
@@ -1164,6 +1243,18 @@ static void sensor_inversion_toggle_cb(lv_obj_t *sw, lv_event_t e)
         sensor_inverted = lv_switch_get_state(sw);
         save_sensor_inversion_setting(sensor_inverted);
         ESP_LOGI(TAG, "Sensor orientation: %s", sensor_inverted ? "inverted (pins backward)" : "normal (pins forward)");
+    }
+}
+
+// Callback for language toggle
+static void language_toggle_cb(lv_obj_t *sw, lv_event_t e)
+{
+    if (e == LV_EVENT_VALUE_CHANGED) {
+        bool is_nl = lv_switch_get_state(sw);
+        current_language = is_nl ? LANG_NL : LANG_EN;
+        save_language_setting(current_language);
+        ESP_LOGI(TAG, "Language changed to: %s (restart required)", current_language == LANG_NL ? "NL" : "EN");
+        // Note: Language change requires restart to update all UI text
     }
 }
 
