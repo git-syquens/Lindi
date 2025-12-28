@@ -169,3 +169,4 @@ $<TARGET_FILE:__idf_lvgl_touch>
 $<TARGET_FILE:__idf_lvgl_tft>
 $<TARGET_FILE:__idf_lv_examples>
 $<TARGET_FILE:__idf_fatfs>
+$<TARGET_FILE:__idf_mqtt>

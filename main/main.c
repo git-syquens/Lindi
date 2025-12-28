@@ -101,8 +101,11 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "esp_err.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "esp_mac.h"
 #include "nvs_flash.h"
 #include "esp_sntp.h"
+#include "mqtt_client.h"
+#include "esp_crt_bundle.h"
 #include <time.h>
 #include <sys/time.h>
 
@@ -125,6 +128,7 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "lvgl_helpers.h"		// Helper - hardware driver related
 #include "clock_component.h"		// Modular clock component
 #include "wifi_credentials.h"		// WiFi credentials (local only, not in git)
+#include "mqtt_config.h"			// MQTT broker configuration (local only, not in git)
 
 #include "lv_examples/src/lv_demo_widgets/lv_demo_widgets.h"
 
@@ -171,6 +175,11 @@ static const lv_color_t accent_palette[16] = {
     LV_COLOR_MAKE(0x40, 0x40, 0x40),  // 15: Dark Gray
 };
 static bool sensor_inverted = false;     // Default: sensor pins forward
+
+// MQTT globals
+static esp_mqtt_client_handle_t mqtt_client = NULL;
+static bool mqtt_connected = false;
+static char mqtt_client_id[32] = {0};  // Auto-generated from MAC address
 
 // Language configuration
 typedef enum {
@@ -708,9 +717,6 @@ static esp_err_t mpu6050_init(void)
     esp_err_t err;
     uint8_t who_am_i;
     
-    // Scan bus first to find devices
-    i2c_scan();
-    
     // Try address 0x68 first
     err = i2c_master_write_read_device(I2C_MASTER_NUM, MPU6050_ADDR,
                                        (uint8_t[]){MPU6050_WHO_AM_I}, 1,
@@ -828,16 +834,17 @@ static void mpu6050_read_task(void *pvParameters)
         int16_t gyro_x_raw = (int16_t)((data[8] << 8) | data[9]);
         int16_t gyro_y_raw = (int16_t)((data[10] << 8) | data[11]);
         int16_t gyro_z_raw = (int16_t)((data[12] << 8) | data[13]);
-        float temperature = (temp_raw / 340.0f) + 36.53f;
         
         // Convert to physical units
         float ax = accel_x_raw / 16384.0f;
         float ay = accel_y_raw / 16384.0f;
         float az = accel_z_raw / 16384.0f;
         
-        float gx = gyro_x_raw / 131.0f;
-        float gy = gyro_y_raw / 131.0f;
-        float gz = gyro_z_raw / 131.0f;
+        // Unused variables (kept for potential future use)
+        (void)temp_raw;
+        (void)gyro_x_raw;
+        (void)gyro_y_raw;
+        (void)gyro_z_raw;
         
         // Output raw data stream (disabled to reduce serial spam)
         // printf("MPU6050 RAW | AccXYZ: %6d %6d %6d | GyroXYZ: %6d %6d %6d | Temp: %6d (%.1f°C)\n",
@@ -952,6 +959,139 @@ void wifi_init_sta(void)
 }
 
 
+// MQTT event handler
+static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
+    
+    switch ((esp_mqtt_event_id_t)event_id) {
+        case MQTT_EVENT_CONNECTED:
+            ESP_LOGI(TAG, "✅ MQTT: Connected to broker");
+            mqtt_connected = true;
+            
+            // Publish "calling home" message to {basetopic}/device
+            char topic[128];
+            char message[128];
+            uint8_t mac[6];
+            esp_read_mac(mac, ESP_MAC_WIFI_STA);
+            
+            snprintf(topic, sizeof(topic), "%s/device", MQTT_BASE_TOPIC);
+            snprintf(message, sizeof(message), "[%02X:%02X:%02X:%02X:%02X:%02X] calling home", 
+                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            
+            int msg_id = esp_mqtt_client_publish(mqtt_client, topic, message, 0, 1, 0);
+            ESP_LOGI(TAG, "MQTT: Published to '%s': %s (msg_id=%d)", topic, message, msg_id);
+            break;
+            
+        case MQTT_EVENT_DISCONNECTED:
+            ESP_LOGW(TAG, "❌ MQTT: Disconnected from broker");
+            mqtt_connected = false;
+            break;
+            
+        case MQTT_EVENT_SUBSCRIBED:
+            ESP_LOGI(TAG, "MQTT: Subscribed, msg_id=%d", event->msg_id);
+            break;
+            
+        case MQTT_EVENT_UNSUBSCRIBED:
+            ESP_LOGI(TAG, "MQTT: Unsubscribed, msg_id=%d", event->msg_id);
+            break;
+            
+        case MQTT_EVENT_PUBLISHED:
+            ESP_LOGD(TAG, "MQTT: Published, msg_id=%d", event->msg_id);
+            break;
+            
+        case MQTT_EVENT_DATA:
+            ESP_LOGI(TAG, "MQTT: Data received on topic '%.*s'", event->topic_len, event->topic);
+            ESP_LOGI(TAG, "MQTT: Data: %.*s", event->data_len, event->data);
+            break;
+            
+        case MQTT_EVENT_ERROR:
+            ESP_LOGE(TAG, "❌ MQTT: Error event");
+            if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
+                ESP_LOGE(TAG, "MQTT: TCP transport error: 0x%x", event->error_handle->esp_transport_sock_errno);
+                ESP_LOGE(TAG, "MQTT: TLS stack error: 0x%x", event->error_handle->esp_tls_stack_err);
+                ESP_LOGE(TAG, "MQTT: TLS cert verify flags: 0x%x", event->error_handle->esp_tls_cert_verify_flags);
+            }
+            break;
+            
+        case MQTT_EVENT_BEFORE_CONNECT:
+            ESP_LOGI(TAG, "🔌 MQTT: Connecting to broker...");
+            break;
+            
+        default:
+            ESP_LOGD(TAG, "MQTT: Other event id:%d", event->event_id);
+            break;
+    }
+}
+
+// Initialize MQTT client
+static void mqtt_init(void)
+{
+    // Generate client ID from MAC address if not provided
+    if (strlen(MQTT_CLIENT_ID) == 0) {
+        uint8_t mac[6];
+        esp_read_mac(mac, ESP_MAC_WIFI_STA);
+        snprintf(mqtt_client_id, sizeof(mqtt_client_id), "lindi_%02X%02X%02X", 
+                 mac[3], mac[4], mac[5]);
+    } else {
+        strncpy(mqtt_client_id, MQTT_CLIENT_ID, sizeof(mqtt_client_id) - 1);
+    }
+    
+    // Print MQTT configuration
+    ESP_LOGI(TAG, "═══════════════════════════════════════════");
+    ESP_LOGI(TAG, "MQTT Configuration:");
+    ESP_LOGI(TAG, "  Broker URL:  %s", MQTT_BROKER_URL);
+    ESP_LOGI(TAG, "  Broker Port: %d", MQTT_BROKER_PORT);
+    ESP_LOGI(TAG, "  Use TLS:     %s", MQTT_USE_TLS ? "Yes" : "No");
+    ESP_LOGI(TAG, "  Base Topic:  %s", MQTT_BASE_TOPIC);
+    ESP_LOGI(TAG, "  Client ID:   %s", mqtt_client_id);
+    if (strlen(MQTT_USERNAME) > 0) {
+        ESP_LOGI(TAG, "  Username:    %s", MQTT_USERNAME);
+        ESP_LOGI(TAG, "  Password:    %s", "********");
+    } else {
+        ESP_LOGI(TAG, "  Auth:        None");
+    }
+    ESP_LOGI(TAG, "═══════════════════════════════════════════");
+    
+    // Configure MQTT client
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker.address.uri = MQTT_BROKER_URL,
+        .broker.address.port = MQTT_BROKER_PORT,
+        .credentials.client_id = mqtt_client_id,
+        .broker.verification.crt_bundle_attach = esp_crt_bundle_attach,
+    };
+    
+    // Add authentication if provided
+    if (strlen(MQTT_USERNAME) > 0) {
+        mqtt_cfg.credentials.username = MQTT_USERNAME;
+        mqtt_cfg.credentials.authentication.password = MQTT_PASSWORD;
+    }
+    
+    ESP_LOGI(TAG, "🔧 MQTT: Initializing client...");
+    mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+    
+    if (mqtt_client == NULL) {
+        ESP_LOGE(TAG, "❌ MQTT: Failed to initialize client");
+        return;
+    }
+    
+    ESP_LOGI(TAG, "✅ MQTT: Client initialized successfully");
+    
+    // Register event handler
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL));
+    
+    // Start MQTT client
+    ESP_LOGI(TAG, "🚀 MQTT: Starting client...");
+    esp_err_t err = esp_mqtt_client_start(mqtt_client);
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "❌ MQTT: Failed to start client: %s", esp_err_to_name(err));
+    } else {
+        ESP_LOGI(TAG, "✅ MQTT: Client started");
+    }
+}
+
+
 // Main function
 void app_main() {
 	ESP_LOGI(TAG, "Starting...");
@@ -1012,6 +1152,14 @@ void app_main() {
 	// Initialize WiFi with power save mode
 	ESP_LOGI(TAG, "Starting WiFi...");
 	wifi_init_sta();
+	
+	// Wait for WiFi connection before starting MQTT
+	ESP_LOGI(TAG, "Waiting for WiFi connection...");
+	xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+	
+	// Initialize MQTT client
+	ESP_LOGI(TAG, "WiFi connected, initializing MQTT...");
+	mqtt_init();
 	
 	// Initialize SD card (optional - continues if card not present)
 	// TEMPORARILY DISABLED - May conflict with display SPI

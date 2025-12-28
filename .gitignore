@@ -1,0 +1,18 @@
+# WiFi credentials - keep local only
+main/wifi_credentials.h
+
+# MQTT configuration - keep local only  
+main/mqtt_config.h
+
+# Build artifacts
+build/
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
