@@ -87,6 +87,7 @@ The device has **3 main tabs** you can switch between by tapping:
 | **Timezone** | GMT-12 to GMT+12 | Your local time offset (default: GMT+1) |
 | **Winter Time** | ON/OFF | Enable for daylight saving time |
 | **Language** | EN/NL | English or Dutch (labels update immediately, tab names need restart) |
+| **Accent Color** | 16 colors | Choose UI accent color from color picker (changes apply immediately) |
 | **Invert Level** | ON/OFF | Reverse tilt direction if sensor mounted backward |
 | **Dark Theme** | ON/OFF | Dark display for low-light environments |
 

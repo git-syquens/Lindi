@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(e:DevEspressifframeworksesp-idf-v5.5export.ps1)",
+      "Bash(idf.py:*)",
+      "Bash(powershell.exe -Command \"& e:\\\\Dev\\\\Espressif\\\\frameworks\\\\esp-idf-v5.5\\\\export.ps1; idf.py -p COM7 build flash monitor\")",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File -Command \"& e:\\\\Dev\\\\Espressif\\\\frameworks\\\\esp-idf-v5.5\\\\export.ps1; cd e:\\\\Dev\\\\Lindi; idf.py build\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File build_and_flash.ps1)",
+      "Bash(cmd.exe /c build_and_flash.cmd)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& 'e:\\\\Dev\\\\Espressif\\\\frameworks\\\\esp-idf-v5.5\\\\export.ps1'; Set-Location 'e:\\\\Dev\\\\Lindi'; idf.py -p COM7 build flash monitor:*)",
+      "Bash(\"E:\\\\Dev\\\\Espressif\\\\python_env\\\\idf5.5_py3.10_env\\\\Scripts\\\\python.exe\" \"E:\\\\Dev\\\\Espressif\\\\frameworks\\\\esp-idf-v5.5\\\\tools\\\\idf.py\":*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& 'e:\\\\Dev\\\\Espressif\\\\frameworks\\\\esp-idf-v5.5\\\\export.ps1'; Set-Location 'e:\\\\Dev\\\\Lindi'; idf.py build\":*)",
+      "Bash(cmd.exe /c \"e:\\\\Dev\\\\Lindi\\\\build_and_flash.cmd\")"
+    ]
+  }
+}

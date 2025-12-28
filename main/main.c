@@ -149,6 +149,27 @@ static bool time_synced = false;
 static lv_obj_t *timezone_selector = NULL;
 static bool winter_time_enabled = false; // Default: off (use summer time)
 static bool dark_theme_enabled = false;  // Default: light theme
+static uint8_t accent_color_index = 0;  // Default: Red (index 0)
+
+// 16-color palette for accent color selection
+static const lv_color_t accent_palette[16] = {
+    LV_COLOR_MAKE(0xFF, 0x00, 0x00),  // 0: Red (default)
+    LV_COLOR_MAKE(0xFF, 0x80, 0x00),  // 1: Orange
+    LV_COLOR_MAKE(0xFF, 0xFF, 0x00),  // 2: Yellow
+    LV_COLOR_MAKE(0x80, 0xFF, 0x00),  // 3: Lime
+    LV_COLOR_MAKE(0x00, 0xFF, 0x00),  // 4: Green
+    LV_COLOR_MAKE(0x00, 0xFF, 0x80),  // 5: Spring Green
+    LV_COLOR_MAKE(0x00, 0xFF, 0xFF),  // 6: Cyan
+    LV_COLOR_MAKE(0x00, 0x80, 0xFF),  // 7: Sky Blue
+    LV_COLOR_MAKE(0x00, 0x00, 0xFF),  // 8: Blue
+    LV_COLOR_MAKE(0x80, 0x00, 0xFF),  // 9: Purple
+    LV_COLOR_MAKE(0xFF, 0x00, 0xFF),  // 10: Magenta
+    LV_COLOR_MAKE(0xFF, 0x00, 0x80),  // 11: Pink
+    LV_COLOR_MAKE(0xFF, 0xFF, 0xFF),  // 12: White
+    LV_COLOR_MAKE(0xC0, 0xC0, 0xC0),  // 13: Silver
+    LV_COLOR_MAKE(0x80, 0x80, 0x80),  // 14: Gray
+    LV_COLOR_MAKE(0x40, 0x40, 0x40),  // 15: Dark Gray
+};
 static bool sensor_inverted = false;     // Default: sensor pins forward
 
 // Language configuration
@@ -169,6 +190,9 @@ static const char *STR_TIMEZONE[] = {"Timezone:", "Tijdzone:"};
 static const char *STR_WINTER_TIME[] = {"Winter Time", "Wintertijd"};
 static const char *STR_SHOW_FPS[] = {"Show FPS/CPU", "Toon FPS/CPU"};
 static const char *STR_DARK_THEME[] = {"Dark Theme", "Donker Thema"};
+static const char *STR_ACCENT_COLOR[] = {"Accent Color", "Accentkleur"};
+static const char *STR_OK[] = {"OK", "OK"};
+static const char *STR_CANCEL[] = {"Cancel", "Annuleer"};
 static const char *STR_INVERT_LEVEL[] = {"Invert Level", "Niveau omkeren"};
 static const char *STR_LANGUAGE[] = {"EN/NL", "EN/NL"};
 static const char *STR_CALIBRATE[] = {"Calibrate", "Kalibreer"};
@@ -228,6 +252,9 @@ static lv_obj_t *tz_label = NULL;
 static lv_obj_t *winter_label = NULL;
 static lv_obj_t *perf_label = NULL;
 static lv_obj_t *theme_label = NULL;
+static lv_obj_t *accent_color_label = NULL;
+static lv_obj_t *accent_color_btn = NULL;
+static lv_obj_t *color_picker_msgbox = NULL;
 static lv_obj_t *sensor_label = NULL;
 static lv_obj_t *lang_label = NULL;
 
@@ -255,6 +282,9 @@ static void level_menu_update_task(lv_task_t *task);
 static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
 static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static void accent_color_button_cb(lv_obj_t *btn, lv_event_t e);
+static void color_picker_event_cb(lv_obj_t *msgbox, lv_event_t e);
+static void apply_accent_color(void);
 static void sensor_inversion_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void language_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void calibrate_confirm_cb(lv_obj_t *btn, lv_event_t e);
@@ -376,6 +406,41 @@ void save_dark_theme_setting(bool enabled)
             err = nvs_commit(nvs_handle);
             if (err == ESP_OK) {
                 ESP_LOGI(TAG, "Saved dark theme setting: %s", enabled ? "enabled" : "disabled");
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Load accent color setting from NVS
+void load_accent_color_setting(void)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        uint8_t value = 0;
+        err = nvs_get_u8(nvs_handle, "accent_color", &value);
+        if (err == ESP_OK && value < 16) {
+            accent_color_index = value;
+            ESP_LOGI(TAG, "Loaded accent color: index %d", accent_color_index);
+        } else {
+            ESP_LOGI(TAG, "Accent color not found, using default (Red)");
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Save accent color setting to NVS
+void save_accent_color_setting(uint8_t color_index)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(nvs_handle, "accent_color", color_index);
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Saved accent color: index %d", color_index);
             }
         }
         nvs_close(nvs_handle);
@@ -774,11 +839,11 @@ static void mpu6050_read_task(void *pvParameters)
         float gy = gyro_y_raw / 131.0f;
         float gz = gyro_z_raw / 131.0f;
         
-        // Output raw data stream
-        printf("MPU6050 RAW | AccXYZ: %6d %6d %6d | GyroXYZ: %6d %6d %6d | Temp: %6d (%.1f°C)\n",
-               accel_x_raw, accel_y_raw, accel_z_raw,
-               gyro_x_raw, gyro_y_raw, gyro_z_raw,
-               temp_raw, temperature);
+        // Output raw data stream (disabled to reduce serial spam)
+        // printf("MPU6050 RAW | AccXYZ: %6d %6d %6d | GyroXYZ: %6d %6d %6d | Temp: %6d (%.1f°C)\n",
+        //        accel_x_raw, accel_y_raw, accel_z_raw,
+        //        gyro_x_raw, gyro_y_raw, gyro_z_raw,
+        //        temp_raw, temperature);
         
         // Raw sensor data (no longer printed to reduce serial spam)
         // printf("MPU6050  G  | AccXYZ: %6.2f %6.2f %6.2f | GyroXYZ: %6.1f %6.1f %6.1f\n",
@@ -904,7 +969,10 @@ void app_main() {
 	
 	// Load dark theme setting from NVS
 	load_dark_theme_setting();
-	
+
+	// Load accent color setting from NVS
+	load_accent_color_setting();
+
 	// Load sensor inversion setting from NVS
 	load_sensor_inversion_setting();
 	
@@ -1322,24 +1390,43 @@ void guiTask(void *pvParameter) {
 		lv_switch_on(theme_switch, LV_ANIM_OFF);
 		// Apply dark theme on startup
 		uint32_t flags = LV_THEME_MATERIAL_FLAG_DARK;
-		lv_theme_t *th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, 
+		lv_theme_t *th = lv_theme_material_init(accent_palette[accent_color_index],
 		                                         LV_THEME_DEFAULT_COLOR_SECONDARY,
 		                                         flags,
-		                                         LV_THEME_DEFAULT_FONT_SMALL, 
-		                                         LV_THEME_DEFAULT_FONT_NORMAL, 
-		                                         LV_THEME_DEFAULT_FONT_SUBTITLE, 
+		                                         LV_THEME_DEFAULT_FONT_SMALL,
+		                                         LV_THEME_DEFAULT_FONT_NORMAL,
+		                                         LV_THEME_DEFAULT_FONT_SUBTITLE,
 		                                         LV_THEME_DEFAULT_FONT_TITLE);
 		lv_theme_set_act(th);
 	} else {
 		lv_switch_off(theme_switch, LV_ANIM_OFF);
 	}
 	lv_obj_set_event_cb(theme_switch, dark_theme_toggle_cb);
-	
+
+	// Accent color button
+	lv_obj_t *accent_cont = lv_cont_create(tab_info, NULL);
+	lv_cont_set_layout(accent_cont, LV_LAYOUT_ROW_MID);
+	lv_obj_set_width(accent_cont, lv_obj_get_width(tab_info) - 20);
+	lv_obj_align(accent_cont, theme_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+
+	accent_color_label = lv_label_create(accent_cont, NULL);
+	lv_label_set_text(accent_color_label, STR_ACCENT_COLOR[current_language]);
+
+	accent_color_btn = lv_btn_create(accent_cont, NULL);
+	lv_obj_set_size(accent_color_btn, 60, 30);
+
+	// Create color preview on button
+	lv_obj_t *accent_btn_label = lv_label_create(accent_color_btn, NULL);
+	lv_label_set_text(accent_btn_label, "");
+	lv_obj_set_style_local_bg_color(accent_color_btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, accent_palette[accent_color_index]);
+
+	lv_obj_set_event_cb(accent_color_btn, accent_color_button_cb);
+
 	// Sensor orientation inversion toggle (for backward-mounted MPU6050)
 	lv_obj_t *sensor_cont = lv_cont_create(tab_info, NULL);
 	lv_cont_set_layout(sensor_cont, LV_LAYOUT_ROW_MID);
 	lv_obj_set_width(sensor_cont, lv_obj_get_width(tab_info) - 20);
-	lv_obj_align(sensor_cont, theme_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+	lv_obj_align(sensor_cont, accent_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
 	sensor_label = lv_label_create(sensor_cont, NULL);
 	lv_label_set_text(sensor_label, STR_INVERT_LEVEL[current_language]);
@@ -1445,15 +1532,159 @@ static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e)
         dark_theme_enabled = lv_switch_get_state(sw);
         save_dark_theme_setting(dark_theme_enabled);
         uint32_t flags = dark_theme_enabled ? LV_THEME_MATERIAL_FLAG_DARK : LV_THEME_MATERIAL_FLAG_LIGHT;
-        lv_theme_t *th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, 
+        lv_theme_t *th = lv_theme_material_init(accent_palette[accent_color_index],
                                                  LV_THEME_DEFAULT_COLOR_SECONDARY,
                                                  flags,
-                                                 LV_THEME_DEFAULT_FONT_SMALL, 
-                                                 LV_THEME_DEFAULT_FONT_NORMAL, 
-                                                 LV_THEME_DEFAULT_FONT_SUBTITLE, 
+                                                 LV_THEME_DEFAULT_FONT_SMALL,
+                                                 LV_THEME_DEFAULT_FONT_NORMAL,
+                                                 LV_THEME_DEFAULT_FONT_SUBTITLE,
                                                  LV_THEME_DEFAULT_FONT_TITLE);
         lv_theme_set_act(th);
         ESP_LOGI(TAG, "Theme changed to %s", dark_theme_enabled ? "dark" : "light");
+    }
+}
+
+// Apply accent color to theme
+static void apply_accent_color(void)
+{
+    uint32_t flags = dark_theme_enabled ? LV_THEME_MATERIAL_FLAG_DARK : LV_THEME_MATERIAL_FLAG_LIGHT;
+    lv_theme_t *th = lv_theme_material_init(accent_palette[accent_color_index],
+                                             LV_THEME_DEFAULT_COLOR_SECONDARY,
+                                             flags,
+                                             LV_THEME_DEFAULT_FONT_SMALL,
+                                             LV_THEME_DEFAULT_FONT_NORMAL,
+                                             LV_THEME_DEFAULT_FONT_SUBTITLE,
+                                             LV_THEME_DEFAULT_FONT_TITLE);
+    lv_theme_set_act(th);
+}
+
+// Callback for accent color button (shows color picker)
+static void accent_color_button_cb(lv_obj_t *btn, lv_event_t e)
+{
+    if (e == LV_EVENT_CLICKED) {
+        // Create a simple modal container instead of msgbox (to fit 320x240 screen)
+        color_picker_msgbox = lv_obj_create(lv_scr_act(), NULL);
+        lv_obj_set_size(color_picker_msgbox, 280, 200);
+        lv_obj_align(color_picker_msgbox, NULL, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_set_style_local_bg_color(color_picker_msgbox, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x30, 0x30, 0x30));
+        lv_obj_set_style_local_border_width(color_picker_msgbox, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 2);
+        lv_obj_set_style_local_border_color(color_picker_msgbox, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+
+        // Title
+        lv_obj_t *title = lv_label_create(color_picker_msgbox, NULL);
+        lv_label_set_text(title, STR_ACCENT_COLOR[current_language]);
+        lv_obj_align(title, NULL, LV_ALIGN_IN_TOP_MID, 0, 5);
+
+        // Create a container for the color grid
+        lv_obj_t *color_grid = lv_cont_create(color_picker_msgbox, NULL);
+        lv_cont_set_layout(color_grid, LV_LAYOUT_PRETTY_MID);
+        lv_obj_set_size(color_grid, 260, 110);
+        lv_obj_align(color_grid, NULL, LV_ALIGN_IN_TOP_MID, 0, 30);
+        lv_obj_set_style_local_pad_inner(color_grid, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 5);
+
+        // Create 16 color buttons (4x4 grid)
+        for (int i = 0; i < 16; i++) {
+            lv_obj_t *color_btn = lv_btn_create(color_grid, NULL);
+            lv_obj_set_size(color_btn, 55, 22);
+            lv_obj_set_style_local_bg_color(color_btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, accent_palette[i]);
+            lv_obj_set_style_local_radius(color_btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, 3);
+
+            // Store color index in user data
+            lv_obj_set_user_data(color_btn, (void*)(intptr_t)i);
+            lv_obj_set_event_cb(color_btn, color_picker_event_cb);
+
+            // Add checkmark if this is the current color
+            if (i == accent_color_index) {
+                lv_obj_t *check_label = lv_label_create(color_btn, NULL);
+                lv_label_set_text(check_label, LV_SYMBOL_OK);
+                lv_obj_set_style_local_text_color(check_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+            }
+        }
+
+        // Add OK and Cancel buttons at the bottom
+        lv_obj_t *btn_cont = lv_cont_create(color_picker_msgbox, NULL);
+        lv_cont_set_layout(btn_cont, LV_LAYOUT_ROW_MID);
+        lv_obj_set_size(btn_cont, 200, 40);
+        lv_obj_align(btn_cont, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, -5);
+
+        lv_obj_t *ok_btn = lv_btn_create(btn_cont, NULL);
+        lv_obj_set_size(ok_btn, 80, 30);
+        lv_obj_t *ok_label = lv_label_create(ok_btn, NULL);
+        lv_label_set_text(ok_label, STR_OK[current_language]);
+        lv_obj_set_user_data(ok_btn, (void*)1);  // 1 = OK
+        lv_obj_set_event_cb(ok_btn, color_picker_event_cb);
+
+        lv_obj_t *cancel_btn = lv_btn_create(btn_cont, NULL);
+        lv_obj_set_size(cancel_btn, 80, 30);
+        lv_obj_t *cancel_label = lv_label_create(cancel_btn, NULL);
+        lv_label_set_text(cancel_label, STR_CANCEL[current_language]);
+        lv_obj_set_user_data(cancel_btn, (void*)2);  // 2 = Cancel
+        lv_obj_set_event_cb(cancel_btn, color_picker_event_cb);
+    }
+}
+
+// Callback for color picker events
+static uint8_t selected_color_temp = 0;  // Temporary storage until OK is pressed
+
+static void color_picker_event_cb(lv_obj_t *obj, lv_event_t e)
+{
+    if (e == LV_EVENT_CLICKED) {
+        intptr_t user_data = (intptr_t)lv_obj_get_user_data(obj);
+
+        if (user_data == 1) {
+            // OK button clicked - apply the color
+            ESP_LOGI(TAG, "OK button clicked");
+            if (color_picker_msgbox != NULL) {
+                lv_obj_t *msgbox_to_delete = color_picker_msgbox;
+                color_picker_msgbox = NULL;
+                
+                accent_color_index = selected_color_temp;
+                save_accent_color_setting(accent_color_index);
+                
+                ESP_LOGI(TAG, "Accent color changed to index: %d", accent_color_index);
+                
+                // Update accent button color on Info tab
+                if (accent_color_btn != NULL) {
+                    lv_obj_set_style_local_bg_color(accent_color_btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, accent_palette[accent_color_index]);
+                }
+                
+                // Apply theme change
+                apply_accent_color();
+                
+                // Delete the dialog
+                lv_obj_del(msgbox_to_delete);
+            }
+        }
+        else if (user_data == 2) {
+            // Cancel button clicked - discard changes
+            ESP_LOGI(TAG, "Color picker cancelled");
+            if (color_picker_msgbox != NULL) {
+                lv_obj_t *msgbox_to_delete = color_picker_msgbox;
+                color_picker_msgbox = NULL;
+                lv_obj_del(msgbox_to_delete);
+            }
+        }
+        else if (user_data >= 0 && user_data < 16) {
+            // Color button clicked - store temporarily and update UI
+            selected_color_temp = (uint8_t)user_data;
+            
+            // Find the color grid container (parent of the button)
+            lv_obj_t *color_grid = lv_obj_get_parent(obj);
+            
+            // Remove all checkmarks from all buttons in the grid
+            lv_obj_t *child = lv_obj_get_child_back(color_grid, NULL);
+            while (child != NULL) {
+                lv_obj_clean(child);  // Remove checkmark labels from this button
+                child = lv_obj_get_child_back(color_grid, child);
+            }
+            
+            // Add checkmark to clicked button
+            lv_obj_t *check_label = lv_label_create(obj, NULL);
+            lv_label_set_text(check_label, LV_SYMBOL_OK);
+            lv_obj_set_style_local_text_color(check_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+            
+            ESP_LOGI(TAG, "Color selected temporarily: %d", selected_color_temp);
+        }
     }
 }
 
@@ -1481,6 +1712,7 @@ static void language_toggle_cb(lv_obj_t *sw, lv_event_t e)
         if (winter_label) lv_label_set_text(winter_label, STR_WINTER_TIME[current_language]);
         if (perf_label) lv_label_set_text(perf_label, STR_SHOW_FPS[current_language]);
         if (theme_label) lv_label_set_text(theme_label, STR_DARK_THEME[current_language]);
+        if (accent_color_label) lv_label_set_text(accent_color_label, STR_ACCENT_COLOR[current_language]);
         if (sensor_label) lv_label_set_text(sensor_label, STR_INVERT_LEVEL[current_language]);
         if (lang_label) lv_label_set_text(lang_label, STR_LANGUAGE[current_language]);
         

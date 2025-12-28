@@ -201,6 +201,14 @@ Het Waterpas-tabblad bevat kalibratiebedieningen aan de linkerkant:
 - Wordt automatisch opgeslagen
 - **Let op:** Themawijzigingen vereisen mogelijk een herstart voor volledig effect
 
+**Accentkleur:**
+- Pas de UI-accentkleur/themakleur aan
+- Tik op de gekleurde knop om de kleurenkiezer te openen
+- Kies uit 16 vooraf ingestelde kleuren
+- Geselecteerde kleurvoorvertoning wordt onmiddellijk bijgewerkt
+- Wijzigingen worden direct toegepast op nieuwe UI-elementen
+- Wordt automatisch opgeslagen en blijft behouden na herstart
+
 **Niveau omkeren:**
 - Keert kanteling- en hellingsmetingen om
 - Nuttig als sensor achterstevoren is gemonteerd

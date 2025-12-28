@@ -201,6 +201,14 @@ The Level tab includes calibration controls on the left side:
 - Saves automatically
 - **Note:** Theme changes may require restart for full effect
 
+**Accent Color:**
+- Customize the UI accent/theme color
+- Tap the colored button to open color picker
+- Choose from 16 preset colors
+- Selected color preview updates immediately
+- Changes apply to new UI elements instantly
+- Saves automatically and persists after restart
+
 **Invert Level:**
 - Reverses pitch and roll measurements
 - Useful if sensor is mounted backward

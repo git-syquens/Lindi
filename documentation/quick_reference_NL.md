@@ -86,8 +86,7 @@ Het apparaat heeft **3 hoofdtabbladen** waartussen u kunt schakelen door te tikk
 |------------|--------|--------------|
 | **Tijdzone** | GMT-12 tot GMT+12 | Uw lokale tijd-offset (standaard: GMT+1) |
 | **Wintertijd** | AAN/UIT | Inschakelen voor zomertijd |
-| **Taal** | EN/NL | Engels of Nederlands (labels direct, tabbladnamen na herstart) |
-| **Niveau omkeren** | AAN/UIT | Kantelingsrichting omkeren als sensor achterstevoren gemonteerd |
+| **Taal** | EN/NL | Engels of Nederlands (labels direct, tabbladnamen na herstart) || **Accentkleur** | 16 kleuren | Kies UI-accentkleur uit kleurenkiezer (wijzigingen direct van toepassing) || **Niveau omkeren** | AAN/UIT | Kantelingsrichting omkeren als sensor achterstevoren gemonteerd |
 | **Donker Thema** | AAN/UIT | Donker display voor weinig licht omgevingen |
 
 ### Snelle Instellingengids
