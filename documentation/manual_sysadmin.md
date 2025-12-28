@@ -188,3 +188,48 @@ mosquitto_sub -h mqtt.syquens.com -p 8883 --capath /etc/ssl/certs \
 - `reboot`: Graceful device restart
 - `get_config`: Report current configuration
 - `calibrate_touch`: Enter touch screen calibration mode
+
+---
+
+## TODO: Fleet Management Service
+
+### Planned HTTP-Based Command Service
+
+A centralized HTTP-based messaging service for managing multiple camper devices (including Lindi) via web interface.
+
+**Core Features:**
+1. **Command Dispatch**
+   - HTTP API to send predefined commands to specific devices or device groups
+   - Auto-generate unique command IDs (UUID v4)
+   - Publish commands to device-specific MQTT topics
+   - Support for scheduled/delayed command execution
+
+2. **Response Monitoring**
+   - Subscribe to MQTT acknowledgment topics (`{basetopic}/device/command_ack`)
+   - Subscribe to command output topics (e.g., `{basetopic}/device/timestamp`)
+   - Correlate responses with sent commands via command_id
+   - Track command execution status: pending/executed/failed/timeout
+
+3. **Logging & Persistence**
+   - Store all sent commands with timestamp, target device, and parameters
+   - Store execution acknowledgments and output payloads
+   - Maintain command history with full audit trail
+   - Database schema: commands table, responses table, devices table
+
+4. **Admin Dashboard**
+   - Web UI to view all sent commands and their status
+   - Filter/search by device, command type, date range, status
+   - Inspect command details: request payload, response payload, execution time
+   - Manual check-off/acknowledge mechanism for admin review
+   - Real-time status updates via WebSocket or SSE
+
+**Technology Stack (Proposed):**
+- Backend: Node.js/Express or Python/Flask
+- Database: PostgreSQL or MongoDB
+- MQTT Client: mqtt.js or paho-mqtt
+- Frontend: React or Vue.js
+- Authentication: JWT-based admin auth
+
+**Implementation Priority:** Low (post v1.0 fleet deployment)
+
+**Related Documentation:** See [manual_sysadmin.md](#mqtt-command-system) for device-side command implementation
