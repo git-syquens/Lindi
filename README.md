@@ -11,10 +11,14 @@ Lindi is an ESP32-based smart display project featuring a touchscreen UI built w
 
 ## Features
 
-- **Analog Clock** - Real-time clock with hour, minute, and second hands using LVGL gauge widget
-- **Digital Clock** - Time display with timezone and winter/summer time support
-- **Dark Theme Toggle** - Switchable UI theme with NVS persistence
-- **WiFi Connectivity** - NTP time synchronization
+- **Analog/Digital Clock** - Switchable clock modes with real-time display and smooth second hand animation
+- **Spirit Level** - Dual-axis precision leveling with MPU6050 sensor (Pitch & Roll)
+- **Calibration System** - User calibration with offset storage for permanent mounting scenarios
+- **WiFi Connectivity** - NTP time synchronization with automatic reconnection
+- **Dark Theme Toggle** - Switchable UI theme with instant preview
+- **Accent Color Picker** - 16-color customization for UI theme accent
+- **Multi-Language Support** - English/Dutch language switching
+- **Persistent Settings** - All preferences saved to NVS flash (timezone, theme, language, calibration, accent color)
 - **Tabbed Interface** - Organized UI with Start, Level, and Info tabs
 
 ## Project Structure
@@ -36,7 +40,12 @@ Lindi/
 │   ├── libraries.md        # Dependencies and components
 │   ├── storage.md          # NVS and storage interfaces
 │   ├── lvgl-elements.md    # LVGL UI element reference
-│   └── analog_clock.md     # Analog clock implementation details
+│   ├── analog_clock.md     # Analog clock implementation details
+│   ├── gyro_mpu6050.md     # MPU6050 sensor integration
+│   ├── manual_EN.md        # Complete user manual (English)
+│   ├── manual_NL.md        # Complete user manual (Dutch)
+│   ├── quick_reference_EN.md # Quick reference card (English)
+│   └── quick_reference_NL.md # Quick reference card (Dutch)
 └── build/                  # Build output directory
 ```
 
@@ -109,17 +118,21 @@ Detailed documentation is available in the `documentation/` folder:
 
 ### Completed
 - ✅ Basic UI framework with tabbed interface
-- ✅ Digital clock with NTP sync
+- ✅ Digital clock with NTP sync and timezone support
+- ✅ Analog clock with smooth animations and switchable modes
 - ✅ Dark theme toggle with persistence
-- ✅ Analog clock dial with hour labels and tick marks
-
-### In Progress
-- 🔄 Analog clock hand positioning (see [analog_clock.md](documentation/analog_clock.md))
+- ✅ Accent color picker (16 colors) with live preview
+- ✅ Spirit level with dual-axis measurements (Pitch & Roll)
+- ✅ MPU6050 sensor integration with 10Hz update rate
+- ✅ User calibration system with offset storage
+- ✅ Multi-language support (English/Dutch)
+- ✅ Persistent settings (NVS storage for all preferences)
+- ✅ WiFi auto-reconnection and NTP sync
 
 ### Planned
-- 📋 Additional widgets and controls
-- 📋 Settings persistence
-- 📋 Power management
+- 📋 Additional sensor features
+- 📋 Power management and sleep modes
+- 📋 Advanced calibration wizard
 
 ## Based On
 
