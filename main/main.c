@@ -143,6 +143,7 @@ static bool time_synced = false;
 static lv_obj_t *timezone_selector = NULL;
 static bool winter_time_enabled = false; // Default: off (use summer time)
 static bool dark_theme_enabled = false;  // Default: light theme
+static bool sensor_inverted = false;     // Default: sensor pins forward
 
 #define NVS_NAMESPACE "lindi_cfg"
 
@@ -200,6 +201,7 @@ static void level_menu_update_task(lv_task_t *task);
 static void timezone_selector_cb(lv_obj_t *dd, lv_event_t e);
 static void winter_time_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e);
+static void sensor_inversion_toggle_cb(lv_obj_t *sw, lv_event_t e);
 static esp_err_t i2c_master_init(void);
 static esp_err_t mpu6050_init(void);
 static void mpu6050_read_task(void *pvParameters);
@@ -314,6 +316,39 @@ void save_dark_theme_setting(bool enabled)
             err = nvs_commit(nvs_handle);
             if (err == ESP_OK) {
                 ESP_LOGI(TAG, "Saved dark theme setting: %s", enabled ? "enabled" : "disabled");
+            }
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Load sensor inversion setting from NVS
+void load_sensor_inversion_setting(void)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err == ESP_OK) {
+        uint8_t value = 0;
+        err = nvs_get_u8(nvs_handle, "sensor_inv", &value);
+        if (err == ESP_OK) {
+            sensor_inverted = (value != 0);
+            ESP_LOGI(TAG, "Loaded sensor inversion setting: %s", sensor_inverted ? "inverted" : "normal");
+        }
+        nvs_close(nvs_handle);
+    }
+}
+
+// Save sensor inversion setting to NVS
+void save_sensor_inversion_setting(bool inverted)
+{
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        err = nvs_set_u8(nvs_handle, "sensor_inv", inverted ? 1 : 0);
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Saved sensor inversion setting: %s", inverted ? "inverted" : "normal");
             }
         }
         nvs_close(nvs_handle);
@@ -516,8 +551,8 @@ static void mpu6050_read_task(void *pvParameters)
                ax, ay, az, gx, gy, gz);
         
         // Calculate pitch and roll from accelerometer (in degrees)
-        float pitch = atan2(ay, sqrt(ax * ax + az * az)) * 180.0f / M_PI;
-        float roll = atan2(-ax, az) * 180.0f / M_PI;
+        float pitch = -atan2(ay, sqrt(ax * ax + az * az)) * 180.0f / M_PI;
+        float roll = -atan2(ax, az) * 180.0f / M_PI;
         
         printf("MPU6050 ANG | Pitch: %6.2f° | Roll: %6.2f°\n\n", pitch, roll);
         
@@ -627,6 +662,9 @@ void app_main() {
 	// Load dark theme setting from NVS
 	load_dark_theme_setting();
 	
+	// Load sensor inversion setting from NVS
+	load_sensor_inversion_setting();
+	
 	// Initialize event loop
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
 	
@@ -726,6 +764,12 @@ static void level_menu_update_task(lv_task_t *task)
 		xSemaphoreGive(mpu_mutex);
 	} else {
 		return;  // Couldn't get mutex, skip this update
+	}
+	
+	// Apply sensor inversion if enabled (for backward-mounted sensor)
+	if (sensor_inverted) {
+		pitch = -pitch;
+		roll = -roll;
 	}
 	
 	// Clamp to ±30 degrees and use raw 1:1 mapping (no logarithmic transform)
@@ -1007,6 +1051,23 @@ void guiTask(void *pvParameter) {
 		lv_switch_off(theme_switch, LV_ANIM_OFF);
 	}
 	lv_obj_set_event_cb(theme_switch, dark_theme_toggle_cb);
+	
+	// Sensor orientation inversion toggle (for backward-mounted MPU6050)
+	lv_obj_t *sensor_cont = lv_cont_create(tab_info, NULL);
+	lv_cont_set_layout(sensor_cont, LV_LAYOUT_ROW_MID);
+	lv_obj_set_width(sensor_cont, lv_obj_get_width(tab_info) - 20);
+	lv_obj_align(sensor_cont, theme_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+	
+	lv_obj_t *sensor_label = lv_label_create(sensor_cont, NULL);
+	lv_label_set_text(sensor_label, "Invert Level");
+	
+	lv_obj_t *sensor_switch = lv_switch_create(sensor_cont, NULL);
+	if (sensor_inverted) {
+		lv_switch_on(sensor_switch, LV_ANIM_OFF);
+	} else {
+		lv_switch_off(sensor_switch, LV_ANIM_OFF);
+	}
+	lv_obj_set_event_cb(sensor_switch, sensor_inversion_toggle_cb);
 
     while (1) {
 		vTaskDelay(1);
@@ -1093,6 +1154,16 @@ static void dark_theme_toggle_cb(lv_obj_t *sw, lv_event_t e)
                                                  LV_THEME_DEFAULT_FONT_TITLE);
         lv_theme_set_act(th);
         ESP_LOGI(TAG, "Theme changed to %s", dark_theme_enabled ? "dark" : "light");
+    }
+}
+
+// Callback for sensor inversion toggle
+static void sensor_inversion_toggle_cb(lv_obj_t *sw, lv_event_t e)
+{
+    if (e == LV_EVENT_VALUE_CHANGED) {
+        sensor_inverted = lv_switch_get_state(sw);
+        save_sensor_inversion_setting(sensor_inverted);
+        ESP_LOGI(TAG, "Sensor orientation: %s", sensor_inverted ? "inverted (pins backward)" : "normal (pins forward)");
     }
 }
 

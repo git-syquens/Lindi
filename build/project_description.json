@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "lindi",
-    "project_version":    "e8e7322-dirty",
+    "project_version":    "4b5b3eb-dirty",
     "project_path":       "E:/Dev/Lindi",
     "idf_path":           "E:/Dev/Espressif/frameworks/esp-idf-v5.5",
     "build_dir":          "E:/Dev/Lindi/build",
