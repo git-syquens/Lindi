@@ -114,6 +114,12 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "freertos/semphr.h"
 #include "freertos/event_groups.h"
 
+// SD card and storage
+#include "esp_vfs_fat.h"
+#include "sdmmc_cmd.h"
+#include "driver/sdspi_host.h"
+#include "driver/spi_common.h"
+
 // Littlevgl header files
 #include "lvgl/lvgl.h"			// LVGL header file
 #include "lvgl_helpers.h"		// Helper - hardware driver related
@@ -164,7 +170,7 @@ static const char *STR_WINTER_TIME[] = {"Winter Time", "Wintertijd"};
 static const char *STR_SHOW_FPS[] = {"Show FPS/CPU", "Toon FPS/CPU"};
 static const char *STR_DARK_THEME[] = {"Dark Theme", "Donker Thema"};
 static const char *STR_INVERT_LEVEL[] = {"Invert Level", "Niveau omkeren"};
-static const char *STR_LANGUAGE[] = {"Language", "Taal"};
+static const char *STR_LANGUAGE[] = {"EN/NL", "EN/NL"};
 
 #define NVS_NAMESPACE "lindi_cfg"
 
@@ -182,6 +188,13 @@ static const char *STR_LANGUAGE[] = {"Language", "Taal"};
 #define MPU6050_GYRO_XOUT_H  0x43      // Gyroscope X-axis high byte
 #define MPU6050_TEMP_OUT_H   0x41      // Temperature high byte
 
+// SD Card Configuration (VSPI SPI3_HOST)
+#define SD_CS_PIN            5         // GPIO for SD card CS
+#define SD_MISO_PIN          19        // GPIO for SD card MISO
+#define SD_MOSI_PIN          23        // GPIO for SD card MOSI
+#define SD_CLK_PIN           18        // GPIO for SD card CLK
+#define SD_MOUNT_POINT       "/sdcard" // Mount point for SD card
+
 // Clock component handle
 static clock_handle_t main_clock = NULL;
 
@@ -192,11 +205,22 @@ static float current_pitch = 0.0f;
 static float current_roll = 0.0f;
 static SemaphoreHandle_t mpu_mutex = NULL;
 
+// SD card global
+static sdmmc_card_t *sd_card = NULL;
+
 // Level menu UI objects
 static lv_obj_t *pitch_bar = NULL;
 static lv_obj_t *roll_bar = NULL;
 static lv_obj_t *pitch_label = NULL;
 static lv_obj_t *roll_label = NULL;
+
+// Info tab UI label objects (for dynamic language updates)
+static lv_obj_t *tz_label = NULL;
+static lv_obj_t *winter_label = NULL;
+static lv_obj_t *perf_label = NULL;
+static lv_obj_t *theme_label = NULL;
+static lv_obj_t *sensor_label = NULL;
+static lv_obj_t *lang_label = NULL;
 
 // Previous values for change detection (avoid unnecessary redraws)
 static int16_t prev_pitch_mapped = 0;
@@ -410,6 +434,90 @@ void save_language_setting(language_t lang)
     }
 }
 
+// Initialize SD card on VSPI bus
+static esp_err_t init_sd_card(void)
+{
+    esp_err_t ret;
+    
+    ESP_LOGI(TAG, "Initializing SD card on VSPI...");
+    
+    // Options for mounting the filesystem
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+        .format_if_mount_failed = false,
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
+    };
+    
+    // SPI bus configuration for VSPI
+    spi_bus_config_t bus_cfg = {
+        .mosi_io_num = SD_MOSI_PIN,
+        .miso_io_num = SD_MISO_PIN,
+        .sclk_io_num = SD_CLK_PIN,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 4000,
+    };
+    
+    // Initialize SPI bus (VSPI_HOST for SD card)
+    ret = spi_bus_initialize(VSPI_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Failed to initialize VSPI bus: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    
+    // SD card SPI device configuration
+    sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+    slot_config.gpio_cs = SD_CS_PIN;
+    slot_config.host_id = VSPI_HOST;
+    
+    // Mount filesystem
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    host.slot = VSPI_HOST;
+    
+    ret = esp_vfs_fat_sdspi_mount(SD_MOUNT_POINT, &host, &slot_config, 
+                                   &mount_config, &sd_card);
+    
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGW(TAG, "Failed to mount SD card filesystem. Is card inserted?");
+        } else {
+            ESP_LOGE(TAG, "Failed to mount SD card: %s", esp_err_to_name(ret));
+        }
+        return ret;
+    }
+    
+    ESP_LOGI(TAG, "SD card mounted successfully");
+    
+    // Print card info
+    sdmmc_card_print_info(stdout, sd_card);
+    
+    // Test write and read
+    ESP_LOGI(TAG, "Testing SD card write/read...");
+    FILE *f = fopen(SD_MOUNT_POINT "/test.txt", "w");
+    if (f) {
+        fprintf(f, "Lindi SD Card Test\n");
+        fprintf(f, "Build: %s %s\n", __DATE__, __TIME__);
+        fclose(f);
+        ESP_LOGI(TAG, "File written successfully");
+        
+        // Read back
+        char line[128];
+        f = fopen(SD_MOUNT_POINT "/test.txt", "r");
+        if (f) {
+            while (fgets(line, sizeof(line), f) != NULL) {
+                // Remove newline
+                line[strcspn(line, "\n")] = 0;
+                ESP_LOGI(TAG, "Read from SD: %s", line);
+            }
+            fclose(f);
+        }
+    } else {
+        ESP_LOGW(TAG, "Failed to open file for writing");
+    }
+    
+    return ESP_OK;
+}
+
 // Note: Digital clock mode NVS functions removed - now handled by clock_component.c
 
 // Initialize I2C master
@@ -602,14 +710,15 @@ static void mpu6050_read_task(void *pvParameters)
                gyro_x_raw, gyro_y_raw, gyro_z_raw,
                temp_raw, temperature);
         
-        printf("MPU6050  G  | AccXYZ: %6.2f %6.2f %6.2f | GyroXYZ: %6.1f %6.1f %6.1f\n",
-               ax, ay, az, gx, gy, gz);
+        // Raw sensor data (no longer printed to reduce serial spam)
+        // printf("MPU6050  G  | AccXYZ: %6.2f %6.2f %6.2f | GyroXYZ: %6.1f %6.1f %6.1f\n",
+        //        ax, ay, az, gx, gy, gz);
         
         // Calculate pitch and roll from accelerometer (in degrees)
         float pitch = -atan2(ay, sqrt(ax * ax + az * az)) * 180.0f / M_PI;
         float roll = -atan2(ax, az) * 180.0f / M_PI;
         
-        printf("MPU6050 ANG | Pitch: %6.2f° | Roll: %6.2f°\n\n", pitch, roll);
+        // printf("MPU6050 ANG | Pitch: %6.2f° | Roll: %6.2f°\n\n", pitch, roll);
         
         // Update global values with mutex (swapped to match display orientation)
         if (xSemaphoreTake(mpu_mutex, portMAX_DELAY)) {
@@ -753,6 +862,16 @@ void app_main() {
 	// Initialize WiFi with power save mode
 	ESP_LOGI(TAG, "Starting WiFi...");
 	wifi_init_sta();
+	
+	// Initialize SD card (optional - continues if card not present)
+	// TEMPORARILY DISABLED - May conflict with display SPI
+	// ESP_LOGI(TAG, "Checking for SD card...");
+	// ret = init_sd_card();
+	// if (ret == ESP_OK) {
+	// 	ESP_LOGI(TAG, "SD card is accessible and ready");
+	// } else {
+	// 	ESP_LOGW(TAG, "SD card not available (insert card and restart if needed)");
+	// }
 	
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
 	// GUI task pinned to Core 1 - keeps display smooth while Core 0 handles I2C
@@ -1047,7 +1166,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_set_width(tz_cont, lv_obj_get_width(tab_info) - 20);
 	lv_obj_align(tz_cont, wifi_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
-	lv_obj_t *tz_label = lv_label_create(tz_cont, NULL);
+	tz_label = lv_label_create(tz_cont, NULL);
 	lv_label_set_text(tz_label, STR_TIMEZONE[current_language]);
 	
 	timezone_selector = lv_dropdown_create(tz_cont, NULL);
@@ -1063,7 +1182,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_set_width(winter_cont, lv_obj_get_width(tab_info) - 20);
 	lv_obj_align(winter_cont, tz_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
-	lv_obj_t *winter_label = lv_label_create(winter_cont, NULL);
+	winter_label = lv_label_create(winter_cont, NULL);
 	lv_label_set_text(winter_label, STR_WINTER_TIME[current_language]);
 	
 	lv_obj_t *winter_switch = lv_switch_create(winter_cont, NULL);
@@ -1080,7 +1199,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_set_width(perf_cont, lv_obj_get_width(tab_info) - 20);
 	lv_obj_align(perf_cont, winter_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
-	lv_obj_t *perf_label = lv_label_create(perf_cont, NULL);
+	perf_label = lv_label_create(perf_cont, NULL);
 	lv_label_set_text(perf_label, STR_SHOW_FPS[current_language]);
 	
 	lv_obj_t *perf_switch = lv_switch_create(perf_cont, NULL);
@@ -1093,7 +1212,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_set_width(theme_cont, lv_obj_get_width(tab_info) - 20);
 	lv_obj_align(theme_cont, perf_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
-	lv_obj_t *theme_label = lv_label_create(theme_cont, NULL);
+	theme_label = lv_label_create(theme_cont, NULL);
 	lv_label_set_text(theme_label, STR_DARK_THEME[current_language]);
 	
 	lv_obj_t *theme_switch = lv_switch_create(theme_cont, NULL);
@@ -1120,7 +1239,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_set_width(sensor_cont, lv_obj_get_width(tab_info) - 20);
 	lv_obj_align(sensor_cont, theme_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
-	lv_obj_t *sensor_label = lv_label_create(sensor_cont, NULL);
+	sensor_label = lv_label_create(sensor_cont, NULL);
 	lv_label_set_text(sensor_label, STR_INVERT_LEVEL[current_language]);
 	
 	lv_obj_t *sensor_switch = lv_switch_create(sensor_cont, NULL);
@@ -1137,7 +1256,7 @@ void guiTask(void *pvParameter) {
 	lv_obj_set_width(lang_cont, lv_obj_get_width(tab_info) - 20);
 	lv_obj_align(lang_cont, sensor_cont, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 	
-	lv_obj_t *lang_label = lv_label_create(lang_cont, NULL);
+	lang_label = lv_label_create(lang_cont, NULL);
 	lv_label_set_text(lang_label, STR_LANGUAGE[current_language]);
 	
 	lv_obj_t *lang_switch = lv_switch_create(lang_cont, NULL);
@@ -1253,8 +1372,17 @@ static void language_toggle_cb(lv_obj_t *sw, lv_event_t e)
         bool is_nl = lv_switch_get_state(sw);
         current_language = is_nl ? LANG_NL : LANG_EN;
         save_language_setting(current_language);
-        ESP_LOGI(TAG, "Language changed to: %s (restart required)", current_language == LANG_NL ? "NL" : "EN");
-        // Note: Language change requires restart to update all UI text
+        ESP_LOGI(TAG, "Language changed to: %s", current_language == LANG_NL ? "NL" : "EN");
+        
+        // Update all Info tab labels dynamically
+        if (tz_label) lv_label_set_text(tz_label, STR_TIMEZONE[current_language]);
+        if (winter_label) lv_label_set_text(winter_label, STR_WINTER_TIME[current_language]);
+        if (perf_label) lv_label_set_text(perf_label, STR_SHOW_FPS[current_language]);
+        if (theme_label) lv_label_set_text(theme_label, STR_DARK_THEME[current_language]);
+        if (sensor_label) lv_label_set_text(sensor_label, STR_INVERT_LEVEL[current_language]);
+        if (lang_label) lv_label_set_text(lang_label, STR_LANGUAGE[current_language]);
+        
+        // Note: Tab names require restart to update
     }
 }
 

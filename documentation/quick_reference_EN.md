@@ -66,7 +66,7 @@ The device has **3 main tabs** you can switch between by tapping:
 |---------|---------|-------------|
 | **Timezone** | GMT-12 to GMT+12 | Your local time offset (default: GMT+1) |
 | **Winter Time** | ON/OFF | Enable for daylight saving time |
-| **Language** | EN/NL | English or Dutch (restart required) |
+| **Language** | EN/NL | English or Dutch (labels update immediately, tab names need restart) |
 | **Invert Level** | ON/OFF | Reverse tilt direction if sensor mounted backward |
 | **Dark Theme** | ON/OFF | Dark display for low-light environments |
 
@@ -77,6 +77,12 @@ The device has **3 main tabs** you can switch between by tapping:
 2. Tap the Timezone dropdown
 3. Select your GMT offset
 4. Time updates immediately
+
+**To change language:**
+1. Go to Info tab
+2. Toggle the EN/NL switch
+3. Setting labels update immediately
+4. For tab names, restart device (disconnect/reconnect power)
 
 **To change language:**
 1. Go to Info tab

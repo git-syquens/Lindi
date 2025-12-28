@@ -55,7 +55,7 @@ Navigate to the **Info** tab to configure:
 - **Winter Time** - Enable/disable daylight saving time compensation
 - **Language** - Switch between English (EN) and Dutch (NL)
 
-> **Note:** Language changes require a device restart to take effect.
+> **Note:** Language changes update most labels immediately. Tab names (Level, Info, etc.) require a restart - disconnect and reconnect the power connection.
 
 ---
 
@@ -264,6 +264,12 @@ The interface consists of three main tabs accessible via touch:
 - Dark theme enabled/disabled
 - Sensor inversion enabled/disabled
 - Language preference (EN/NL)
+
+**Language Switching:**
+- Toggle the **EN/NL** switch in the Info tab
+- Setting labels update immediately (Timezone, Winter Time, etc.)
+- Tab names update after restart (disconnect and reconnect power)
+- Your language preference is saved automatically
 
 **Factory Reset:**
 - Not available via user interface

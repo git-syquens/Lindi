@@ -66,7 +66,7 @@ Het apparaat heeft **3 hoofdtabbladen** waartussen u kunt schakelen door te tikk
 |------------|--------|--------------|
 | **Tijdzone** | GMT-12 tot GMT+12 | Uw lokale tijd-offset (standaard: GMT+1) |
 | **Wintertijd** | AAN/UIT | Inschakelen voor zomertijd |
-| **Taal** | EN/NL | Engels of Nederlands (herstart vereist) |
+| **Taal** | EN/NL | Engels of Nederlands (labels direct, tabbladnamen na herstart) |
 | **Niveau omkeren** | AAN/UIT | Kantelingsrichting omkeren als sensor achterstevoren gemonteerd |
 | **Donker Thema** | AAN/UIT | Donker display voor weinig licht omgevingen |
 
@@ -77,6 +77,12 @@ Het apparaat heeft **3 hoofdtabbladen** waartussen u kunt schakelen door te tikk
 2. Tik op de Tijdzone vervolgkeuzelijst
 3. Selecteer uw GMT-offset
 4. Tijd wordt onmiddellijk bijgewerkt
+
+**Om taal te wijzigen:**
+1. Ga naar Info-tabblad
+2. Schakel de EN/NL schakelaar
+3. Instellingslabels worden onmiddellijk bijgewerkt
+4. Voor tabbladnamen, herstart apparaat (stroomverbinding loskoppelen/aansluiten)
 
 **Om taal te wijzigen:**
 1. Ga naar Info-tabblad

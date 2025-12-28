@@ -55,7 +55,7 @@ Navigeer naar het **Info**-tabblad om te configureren:
 - **Wintertijd** - Schakel zomertijdcompensatie in/uit
 - **Taal** - Schakel tussen Engels (EN) en Nederlands (NL)
 
-> **Let op:** Taalwijzigingen vereisen een herstart van het apparaat.
+> **Let op:** Taalwijzigingen werken de meeste labels onmiddellijk bij. Tabbladnamen (Waterpas, Info, etc.) vereisen een herstart - koppel de stroomverbinding los en weer aan.
 
 ---
 
@@ -264,6 +264,12 @@ De interface bestaat uit drie hoofdtabbladen die toegankelijk zijn via aanraking
 - Donker thema ingeschakeld/uitgeschakeld
 - Sensorinversie ingeschakeld/uitgeschakeld
 - Taalvoorkeur (EN/NL)
+
+**Taal Wisselen:**
+- Schakel de **EN/NL** schakelaar in het Info-tabblad
+- Instellingslabels worden onmiddellijk bijgewerkt (Tijdzone, Wintertijd, etc.)
+- Tabbladnamen worden bijgewerkt na herstart (stroomverbinding loskoppelen en weer aansluiten)
+- Uw taalvoorkeur wordt automatisch opgeslagen
 
 **Fabrieksinstellingen:**
 - Niet beschikbaar via gebruikersinterface
