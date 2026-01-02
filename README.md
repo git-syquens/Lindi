@@ -130,6 +130,7 @@ Detailed documentation is available in the `documentation/` folder:
 - ✅ WiFi auto-reconnection and NTP sync
 
 ### Planned
+- 📋 WiFi credentials in NVS (runtime configurable via serial menu, no rebuild required for deployment)
 - 📋 Additional sensor features
 - 📋 Power management and sleep modes
 - 📋 Advanced calibration wizard

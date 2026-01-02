@@ -128,6 +128,7 @@ Flash button	IO0			25		GPIO0, ADC2_CH1, TOUCH1, RTC_GPIO11, CLK_OUT1,EMAC_TX_CLK
 #include "lvgl/lvgl.h"			// LVGL header file
 #include "lvgl_helpers.h"		// Helper - hardware driver related
 #include "clock_component.h"		// Modular clock component
+#include "serial_menu.h"		// Serial settings menu
 #include "wifi_credentials.h"		// WiFi credentials (local only, not in git)
 #include "mqtt_config.h"			// MQTT broker configuration (local only, not in git)
 
@@ -1264,6 +1265,64 @@ static void mqtt_init(void)
     }
 }
 
+// MQTT sensor data logging task - publishes pitch/roll every second
+static void mqtt_sensor_log_task(void *pvParameters)
+{
+    ESP_LOGI(TAG, "MQTT sensor logging task started");
+
+    // Wait for MQTT connection
+    vTaskDelay(pdMS_TO_TICKS(5000));  // 5 second delay to ensure MQTT is connected
+
+    while (1) {
+        // Only publish if MQTT client is connected
+        if (mqtt_client != NULL) {
+            // Get current pitch and roll with mutex
+            float pitch = 0.0f, roll = 0.0f;
+            if (xSemaphoreTake(mpu_mutex, pdMS_TO_TICKS(100))) {
+                pitch = current_pitch;
+                roll = current_roll;
+                xSemaphoreGive(mpu_mutex);
+            }
+
+            // Get current time with millisecond precision
+            struct timeval tv;
+            gettimeofday(&tv, NULL);
+
+            // Calculate milliseconds since epoch
+            uint64_t timestamp_ms = (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)(tv.tv_usec / 1000);
+
+            // Create JSON message
+            cJSON *root = cJSON_CreateObject();
+            cJSON_AddStringToObject(root, "client_id", mqtt_client_id);
+            cJSON_AddNumberToObject(root, "timestamp_ms", (double)timestamp_ms);
+            cJSON_AddNumberToObject(root, "pitch", (double)pitch);
+            cJSON_AddNumberToObject(root, "roll", (double)roll);
+
+            // Convert to JSON string
+            char *json_string = cJSON_PrintUnformatted(root);
+            if (json_string) {
+                // Publish to lindi/device/level topic
+                char topic[64];
+                snprintf(topic, sizeof(topic), "%s/device/level", MQTT_BASE_TOPIC);
+
+                int msg_id = esp_mqtt_client_publish(mqtt_client, topic, json_string, 0, 0, 0);
+
+                // Log every 10th message to avoid spam (log every 10 seconds)
+                static int log_counter = 0;
+                if (++log_counter >= 10) {
+                    ESP_LOGI(TAG, "MQTT level data published (msg_id=%d): %s", msg_id, json_string);
+                    log_counter = 0;
+                }
+
+                free(json_string);
+            }
+            cJSON_Delete(root);
+        }
+
+        // Wait 1 second before next publish
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
 
 // Main function
 void app_main() {
@@ -1276,7 +1335,11 @@ void app_main() {
 		ret = nvs_flash_init();
 	}
 	ESP_ERROR_CHECK(ret);
-	
+
+	// Initialize serial menu (press 'm' to open)
+	ESP_LOGI(TAG, "Starting serial menu...");
+	serial_menu_init();
+
 	// Load winter time setting from NVS
 	load_winter_time_setting();
 	
@@ -1333,7 +1396,11 @@ void app_main() {
 	// Initialize MQTT client
 	ESP_LOGI(TAG, "WiFi connected, initializing MQTT...");
 	mqtt_init();
-	
+
+	// Start MQTT sensor logging task (publishes pitch/roll every second)
+	ESP_LOGI(TAG, "Starting MQTT sensor logging task...");
+	xTaskCreatePinnedToCore(mqtt_sensor_log_task, "mqtt_sensor_log", 3072, NULL, 5, NULL, 0);
+
 	// Initialize SD card (optional - continues if card not present)
 	// TEMPORARILY DISABLED - May conflict with display SPI
 	// ESP_LOGI(TAG, "Checking for SD card...");

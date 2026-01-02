@@ -438,3 +438,106 @@ idf.py -p COMx flash monitor
 - No need to search for ESP-IDF installation every time
 - Export script for environment: `e:\Dev\Espressif\frameworks\esp-idf-v5.5\export.ps1`
 - Build from project directory: `e:\Dev\Lindi`
+
+---
+
+## Timestamp Standard for Sensor Data
+
+**CRITICAL**: All sensor data published via MQTT MUST use the standardized millisecond-precision timestamp for cross-sensor correlation.
+
+### Required Implementation Pattern
+
+When adding ANY sensor that publishes to MQTT, use this exact pattern:
+
+```c
+#include <sys/time.h>
+#include <time.h>
+
+// In your sensor publishing function:
+
+// Get current time with millisecond precision
+struct timeval tv;
+gettimeofday(&tv, NULL);
+
+// Calculate milliseconds since Unix epoch
+uint64_t timestamp_ms = (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)(tv.tv_usec / 1000);
+
+// Add to JSON message
+cJSON_AddNumberToObject(root, "timestamp_ms", (double)timestamp_ms);
+```
+
+### Timestamp Requirements
+
+- **Type**: `uint64_t` (unsigned 64-bit integer)
+- **Unit**: Milliseconds since Unix epoch (January 1, 1970 00:00:00 UTC)
+- **Precision**: 1 millisecond
+- **JSON field name**: `"timestamp_ms"` (always use this exact name)
+- **JSON type**: Number (not string)
+- **Always UTC**: Never use local timezone or timezone-adjusted timestamps
+
+### Why This Standard?
+
+1. **Cross-Sensor Correlation**: GPS, level, temperature, and other sensors can be synchronized within millisecond precision
+2. **No Timezone Confusion**: All timestamps in UTC; timezone conversion happens during data analysis
+3. **Future-Proof**: 64-bit integer supports dates until year 2262
+4. **Platform Independent**: Standard Unix timestamp works across all analysis platforms (Python, SQL, JavaScript)
+5. **Data Analysis**: Enables time-series analysis and sensor fusion algorithms
+
+### Example MQTT Message Format
+
+```json
+{
+  "client_id": "lindi_AB12CD",
+  "timestamp_ms": 1735840123456,
+  "pitch": 1.234,
+  "roll": -0.567
+}
+```
+
+### Common Mistakes to Avoid
+
+❌ **WRONG**: Using `time(NULL)` - only second precision
+```c
+time_t now = time(NULL);
+uint64_t timestamp_ms = now * 1000;  // Missing sub-second precision!
+```
+
+❌ **WRONG**: Using `millis()` or `esp_timer_get_time()` - not UTC synchronized
+```c
+uint64_t timestamp_ms = millis();  // Relative to boot, not synchronized!
+```
+
+❌ **WRONG**: Using local time or timezone-adjusted timestamps
+```c
+struct tm local_time;
+localtime_r(&now, &local_time);  // Use gmtime_r() instead!
+```
+
+✅ **CORRECT**: Standard millisecond-precision UTC timestamp
+```c
+struct timeval tv;
+gettimeofday(&tv, NULL);
+uint64_t timestamp_ms = (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)(tv.tv_usec / 1000);
+```
+
+### Current Sensor Implementations
+
+Reference these as examples when adding new sensors:
+
+- **Level Sensor (MPU6050)**: `lindi/device/level` @ 1 Hz
+  - File: `main/main.c` lines 1268-1325
+  - Function: `mqtt_sensor_log_task()`
+  - Topic: `lindi/device/level`
+  - Update rate: 1000ms (1 Hz)
+
+### For Complete Documentation
+
+See `/documentation/timestamp_standard.md` for:
+- Detailed implementation guide
+- Converting timestamps to human-readable format (Python, C, JavaScript)
+- Data correlation examples with pandas
+- SQL database storage patterns
+- Common pitfalls and troubleshooting
+- NTP synchronization requirements
+
+---

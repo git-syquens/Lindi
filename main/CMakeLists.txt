@@ -1,4 +1,4 @@
-set(SOURCES main.c clock_component.c)
+set(SOURCES main.c clock_component.c serial_menu.c)
 idf_component_register(SRCS ${SOURCES}
                     INCLUDE_DIRS .
                     REQUIRES lvgl_esp32_drivers lvgl_touch lvgl_tft lvgl lv_examples esp_event esp_timer esp_wifi nvs_flash driver fatfs sdmmc esp_driver_sdspi mqtt json)

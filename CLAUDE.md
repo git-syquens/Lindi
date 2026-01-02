@@ -319,6 +319,71 @@ if (who_am_i != 0x68 && who_am_i != 0x70) {
 
 ---
 
+## ⏱️ Timestamp Standard for Sensor Data
+
+**CRITICAL**: All sensor data published via MQTT MUST use this standardized timestamp format for accurate cross-sensor correlation.
+
+### Standard Implementation Pattern
+```c
+#include <sys/time.h>
+#include <time.h>
+
+// Get current time with millisecond precision
+struct timeval tv;
+gettimeofday(&tv, NULL);
+
+// Calculate milliseconds since Unix epoch
+uint64_t timestamp_ms = (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)(tv.tv_usec / 1000);
+```
+
+### Requirements
+- **Type**: `uint64_t` (unsigned 64-bit integer)
+- **Unit**: Milliseconds since Unix epoch (Jan 1, 1970 00:00:00 UTC)
+- **Precision**: 1 millisecond
+- **JSON field**: `"timestamp_ms"` (number, not string)
+- **Always UTC**: Never use local time or timezone-adjusted timestamps
+
+### Why This Standard?
+1. **Correlation**: GPS and sensor data can be synchronized within millisecond precision
+2. **No Timezone Confusion**: All timestamps in UTC, conversion happens during analysis
+3. **Future-Proof**: 64-bit supports dates until year 2262
+4. **Cross-Platform**: Standard Unix timestamp works everywhere
+5. **Consistency**: Same format across all sensors (level, GPS, temperature, etc.)
+
+### Converting to Human-Readable
+
+**Python**:
+```python
+from datetime import datetime
+timestamp_ms = 1735840123456
+dt = datetime.utcfromtimestamp(timestamp_ms / 1000.0)
+print(dt)  # 2025-01-02 12:15:23.456000
+```
+
+**C (ESP32)**:
+```c
+time_t sec = timestamp_ms / 1000;
+int ms = timestamp_ms % 1000;
+struct tm timeinfo;
+gmtime_r(&sec, &timeinfo);
+strftime(datetime_str, sizeof(datetime_str), "%Y-%m-%d %H:%M:%S", &timeinfo);
+printf("%s.%03d UTC\n", datetime_str, ms);
+```
+
+### Current Implementations
+- **Level Sensor** (MPU6050): `lindi/device/level` @ 1 Hz
+  - [main/main.c:1268-1325](main/main.c#L1268-L1325)
+
+### For Complete Documentation
+See [documentation/timestamp_standard.md](documentation/timestamp_standard.md) for:
+- Detailed implementation guide
+- Data correlation examples
+- SQL database storage patterns
+- Common pitfalls to avoid
+- NTP synchronization requirements
+
+---
+
 ## 📞 Support & Maintenance
 
 **Author**: V.N. Verbon
@@ -345,5 +410,5 @@ Before considering a task complete:
 
 ---
 
-**Last Updated**: 2025-12-28
-**Version**: 1.0
+**Last Updated**: 2026-01-02
+**Version**: 1.1
